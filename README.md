@@ -78,7 +78,7 @@ npm install @scheduler0/scheduler0-node-client
 The Scheduler0 Node.js client supports multiple authentication methods:
 
 ### 1. API Key + Secret Authentication (Default)
-Most endpoints require API Key and Secret authentication with an Account ID:
+Most endpoints require API Key and Secret authentication with an Account ID. These credentials are created through the credentials API:
 
 ```typescript
 import { Client } from '@scheduler0/scheduler0-node-client';
@@ -92,17 +92,19 @@ const client = Client.newAPIClientWithAccount(
 );
 ```
 
-### 2. Basic Authentication (Peer Communication)
-For peer-to-peer communication:
+### 2. Basic Authentication (Self-hosted Infrastructure)
+For users running Scheduler0 on their own infrastructure, you can authenticate using a username and password that was set during infrastructure setup. This is typically used for administrative operations and peer-to-peer communication:
 
 ```typescript
 const client = Client.newBasicAuthClient(
   'http://localhost:7070',  // Base URL
   'v1',                     // API Version
-  'username',               // Username
-  'password'                // Password
+  'username',               // Username (set during infrastructure setup)
+  'password'                // Password (set during infrastructure setup)
 );
 ```
+
+**Note**: Basic authentication is primarily for self-hosted deployments where you have configured username/password credentials during your infrastructure setup.
 
 ### 3. Options Pattern
 For more flexibility, use the options pattern:
@@ -115,6 +117,19 @@ const client = new Client(
     apiKey: 'api-key',
     apiSecret: 'api-secret',
     accountId: '123'
+  }
+);
+```
+
+Or for basic authentication:
+
+```typescript
+const client = new Client(
+  'http://localhost:7070',  // Base URL
+  'v1',                     // API Version
+  {
+    username: 'username',   // Set during infrastructure setup
+    password: 'password'     // Set during infrastructure setup
   }
 );
 ```
