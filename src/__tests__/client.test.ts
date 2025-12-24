@@ -1,0 +1,1498 @@
+import { Client } from '../client';
+import {
+  AccountResponse,
+  CredentialResponse,
+  PaginatedCredentialsResponse,
+  PaginatedExecutionsResponse,
+  ExecutorResponse,
+  PaginatedExecutorsResponse,
+  ProjectResponse,
+  PaginatedProjectsResponse,
+  JobResponse,
+  BatchJobResponse,
+  PaginatedJobsResponse,
+  AsyncTaskResponse,
+  HealthcheckResponse,
+  FeaturesResponse,
+  PromptJobResponse,
+} from '../types';
+
+// Mock fetch globally
+global.fetch = jest.fn();
+
+describe('Client', () => {
+  const baseURL = 'http://localhost:7070';
+  const apiKey = 'mock-api-key';
+  const apiSecret = 'mock-api-secret';
+  const accountId = '123';
+
+  beforeEach(() => {
+    (global.fetch as jest.Mock).mockClear();
+  });
+
+  describe('Client Initialization', () => {
+    it('should create a client with API key authentication', () => {
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      expect(client).toBeInstanceOf(Client);
+    });
+
+    it('should create a client with API key and account ID', () => {
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      expect(client).toBeInstanceOf(Client);
+    });
+
+    it('should create a client with basic authentication', () => {
+      const client = Client.newBasicAuthClient(baseURL, 'v1', 'username', 'password');
+      expect(client).toBeInstanceOf(Client);
+    });
+
+    it('should create a client with options', () => {
+      const client = new Client(baseURL, 'v1', {
+        apiKey,
+        apiSecret,
+        accountId,
+      });
+      expect(client).toBeInstanceOf(Client);
+    });
+  });
+
+  describe('Account Methods', () => {
+    it('should create an account', async () => {
+      const mockResponse: AccountResponse = {
+        success: true,
+        data: {
+          id: 1,
+          name: 'Test Account',
+          features: [],
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.createAccount({ name: 'Test Account' });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/accounts'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'X-API-Key': apiKey,
+            'X-Secret-Key': apiSecret,
+          }),
+        })
+      );
+    });
+
+    it('should get an account', async () => {
+      const mockResponse: AccountResponse = {
+        success: true,
+        data: {
+          id: 1,
+          name: 'Test Account',
+          features: [],
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.getAccount('1');
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/accounts/1'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should add feature to account', async () => {
+      const mockResponse = {
+        success: true,
+        data: { featureId: 1 },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.addFeatureToAccount('1', { featureId: 1 });
+
+      expect(result.success).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/accounts/1/feature'),
+        expect.objectContaining({
+          method: 'PUT',
+        })
+      );
+    });
+
+    it('should list features', async () => {
+      const mockResponse: FeaturesResponse = {
+        success: true,
+        data: [
+          {
+            id: 1,
+            name: 'feature-1',
+            dateCreated: '2025-01-01T00:00:00Z',
+          },
+        ],
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.listFeatures();
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/features'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+  });
+
+  describe('Credential Methods', () => {
+    it('should list credentials', async () => {
+      const mockResponse: PaginatedCredentialsResponse = {
+        success: true,
+        data: {
+          total: 1,
+          offset: 0,
+          limit: 10,
+          credentials: [
+            {
+              id: 1,
+              accountId: 123,
+              archived: false,
+              apiKey: 'mock-key',
+              apiSecret: 'mock-secret',
+              dateCreated: '2025-01-01T00:00:00Z',
+              createdBy: 'user-1',
+            },
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.listCredentials({
+        limit: 10,
+        offset: 0,
+        orderBy: 'date_created',
+        orderByDirection: 'desc',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/credentials?limit=10&offset=0&orderBy=date_created&orderByDirection=desc'),
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'X-Account-ID': accountId,
+          }),
+        })
+      );
+    });
+
+    it('should create a credential', async () => {
+      const mockResponse: CredentialResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          archived: false,
+          apiKey: 'new-key',
+          apiSecret: 'new-secret',
+          dateCreated: '2025-01-01T00:00:00Z',
+          createdBy: 'user-1',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.createCredential({ createdBy: 'user-1' });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/credentials'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ createdBy: 'user-1' }),
+        })
+      );
+    });
+
+    it('should get a credential', async () => {
+      const mockResponse: CredentialResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          archived: false,
+          apiKey: 'get-key',
+          apiSecret: 'get-secret',
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.getCredential('1');
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/credentials/1'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should update a credential', async () => {
+      const mockResponse: CredentialResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          archived: true,
+          apiKey: 'updated-key',
+          apiSecret: 'updated-secret',
+          dateCreated: '2025-01-01T00:00:00Z',
+          modifiedBy: 'user-1',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.updateCredential('1', {
+        archived: true,
+        modifiedBy: 'user-1',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/credentials/1'),
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ archived: true, modifiedBy: 'user-1' }),
+        })
+      );
+    });
+
+    it('should delete a credential', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        headers: new Headers(),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      await client.deleteCredential('1', { deletedBy: 'user-1' });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/credentials/1'),
+        expect.objectContaining({
+          method: 'DELETE',
+          body: JSON.stringify({ deletedBy: 'user-1' }),
+        })
+      );
+    });
+
+    it('should archive a credential', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        headers: new Headers(),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      await client.archiveCredential('1', { archivedBy: 'user-1' });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/credentials/1/archive'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ archivedBy: 'user-1' }),
+        })
+      );
+    });
+  });
+
+  describe('Execution Methods', () => {
+    it('should list executions', async () => {
+      const mockResponse: PaginatedExecutionsResponse = {
+        success: true,
+        data: {
+          total: 1,
+          offset: 0,
+          limit: 10,
+          executions: [
+            {
+              id: 1,
+              accountId: 123,
+              uniqueId: 'unique-1',
+              state: 1,
+              nodeId: 1,
+              jobId: 1,
+              lastExecutionDatetime: '2025-01-01T00:00:00Z',
+              nextExecutionDatetime: '2025-01-02T00:00:00Z',
+              jobQueueVersion: 1,
+              executionVersion: 1,
+              dateCreated: '2025-01-01T00:00:00Z',
+              dateModified: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.listExecutions({
+        startDate: '2025-01-01T00:00:00Z',
+        endDate: '2025-12-31T23:59:59Z',
+        limit: 10,
+        offset: 0,
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executions?startDate=2025-01-01T00%3A00%3A00Z&endDate=2025-12-31T23%3A59%3A59Z&limit=10&offset=0'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+  });
+
+  describe('Executor Methods', () => {
+    it('should list executors', async () => {
+      const mockResponse: PaginatedExecutorsResponse = {
+        success: true,
+        data: {
+          total: 1,
+          offset: 0,
+          limit: 10,
+          executors: [
+            {
+              id: 1,
+              accountId: 123,
+              name: 'webhook-executor',
+              type: 'webhook_url',
+              webhookUrl: 'https://example.com/webhook',
+              webhookMethod: 'POST',
+              dateCreated: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.listExecutors({
+        limit: 10,
+        offset: 0,
+        orderBy: 'date_created',
+        orderByDirection: 'desc',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executors?limit=10&offset=0&orderBy=date_created&orderByDirection=desc'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should create an executor', async () => {
+      const mockResponse: ExecutorResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          name: 'webhook-executor',
+          type: 'webhook_url',
+          webhookUrl: 'https://example.com/webhook',
+          webhookMethod: 'POST',
+          webhookSecret: 'secret-key',
+          dateCreated: '2025-01-01T00:00:00Z',
+          createdBy: 'user-1',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.createExecutor({
+        name: 'webhook-executor',
+        type: 'webhook_url',
+        webhookUrl: 'https://example.com/webhook',
+        webhookMethod: 'POST',
+        webhookSecret: 'secret-key',
+        createdBy: 'user-1',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executors'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+
+    it('should get an executor', async () => {
+      const mockResponse: ExecutorResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          name: 'get-executor',
+          type: 'webhook_url',
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.getExecutor('1');
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executors/1'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should update an executor', async () => {
+      const mockResponse: ExecutorResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          name: 'updated-executor',
+          type: 'webhook_url',
+          dateCreated: '2025-01-01T00:00:00Z',
+          modifiedBy: 'user-1',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.updateExecutor('1', {
+        name: 'updated-executor',
+        modifiedBy: 'user-1',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executors/1'),
+        expect.objectContaining({
+          method: 'PUT',
+        })
+      );
+    });
+
+    it('should delete an executor', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        headers: new Headers(),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      await client.deleteExecutor('1', { deletedBy: 'user-1' });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executors/1'),
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      );
+    });
+  });
+
+  describe('Project Methods', () => {
+    it('should list projects', async () => {
+      const mockResponse: PaginatedProjectsResponse = {
+        success: true,
+        data: {
+          total: 1,
+          offset: 0,
+          limit: 10,
+          projects: [
+            {
+              id: 1,
+              accountId: 123,
+              name: 'Test Project',
+              description: 'Test Description',
+              dateCreated: '2025-01-01T00:00:00Z',
+              createdBy: 'user-1',
+            },
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.listProjects({
+        limit: 10,
+        offset: 0,
+        orderBy: 'date_created',
+        orderByDirection: 'desc',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/projects?limit=10&offset=0&orderBy=date_created&orderByDirection=desc'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should create a project', async () => {
+      const mockResponse: ProjectResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          name: 'New Project',
+          description: 'New Description',
+          dateCreated: '2025-01-01T00:00:00Z',
+          createdBy: 'user-1',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.createProject({
+        name: 'New Project',
+        description: 'New Description',
+        createdBy: 'user-1',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/projects'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+
+    it('should get a project', async () => {
+      const mockResponse: ProjectResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          name: 'Get Project',
+          description: 'Get Description',
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.getProject('1');
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/projects/1'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should update a project', async () => {
+      const mockResponse: ProjectResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          name: 'Updated Project',
+          description: 'Updated Description',
+          dateCreated: '2025-01-01T00:00:00Z',
+          modifiedBy: 'user-1',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      return client.updateProject('1', {
+        description: 'Updated Description',
+        modifiedBy: 'user-1',
+      }).then((result) => {
+        expect(result).toEqual(mockResponse);
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/v1/projects/1'),
+          expect.objectContaining({
+            method: 'PUT',
+          })
+        );
+      });
+    });
+
+    it('should delete a project', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        headers: new Headers(),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      await client.deleteProject('1', { deletedBy: 'user-1' });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/projects/1'),
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      );
+    });
+  });
+
+  describe('Job Methods', () => {
+    it('should list jobs', async () => {
+      const mockResponse: PaginatedJobsResponse = {
+        success: true,
+        data: {
+          total: 1,
+          offset: 0,
+          limit: 10,
+          jobs: [
+            {
+              id: 1,
+              accountId: 123,
+              projectId: 1,
+              timezone: 'UTC',
+              data: 'job data',
+              spec: '0 30 * * * *',
+              dateCreated: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.listJobs({
+        limit: 10,
+        offset: 0,
+        orderBy: 'date_created',
+        orderByDirection: 'desc',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/jobs?limit=10&offset=0&orderBy=date_created&orderByDirection=desc'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should create a job', async () => {
+      const mockResponse: BatchJobResponse = {
+        success: true,
+        data: 'request-id-123',
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({
+          'content-type': 'application/json',
+          location: '/async-tasks/request-id-123',
+        }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.createJob({
+        projectId: 1,
+        timezone: 'UTC',
+        data: 'New Job',
+        startDate: '2025-01-01T00:00:00Z',
+        endDate: '2025-12-31T00:00:00Z',
+        createdBy: 'user-1',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/jobs'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+
+    it('should batch create jobs', async () => {
+      const mockResponse: BatchJobResponse = {
+        success: true,
+        data: 'request-id-123',
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({
+          'content-type': 'application/json',
+          location: '/async-tasks/request-id-123',
+        }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.batchCreateJobs([
+        {
+          projectId: 1,
+          timezone: 'UTC',
+          data: 'job 1',
+          createdBy: 'user-1',
+        },
+        {
+          projectId: 1,
+          timezone: 'UTC',
+          data: 'job 2',
+          createdBy: 'user-1',
+        },
+      ]);
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/jobs'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+
+    it('should get a job', async () => {
+      const mockResponse: JobResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          projectId: 1,
+          timezone: 'UTC',
+          data: 'get job',
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.getJob('1');
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/jobs/1'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should update a job', async () => {
+      const mockResponse: JobResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          projectId: 1,
+          timezone: 'UTC',
+          data: 'updated job',
+          dateCreated: '2025-01-01T00:00:00Z',
+          modifiedBy: 'user-1',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.updateJob('1', {
+        data: 'updated job',
+        modifiedBy: 'user-1',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/jobs/1'),
+        expect.objectContaining({
+          method: 'PUT',
+        })
+      );
+    });
+
+    it('should delete a job', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        headers: new Headers(),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      await client.deleteJob('1', { deletedBy: 'user-1' });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/jobs/1'),
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      );
+    });
+  });
+
+  describe('Async Task Methods', () => {
+    it('should get an async task', async () => {
+      const mockResponse: AsyncTaskResponse = {
+        success: true,
+        data: {
+          id: 1,
+          requestId: 'request-id-123',
+          input: 'input',
+          output: 'output',
+          service: 'service',
+          state: 2,
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.getAsyncTask('request-id-123');
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/async-tasks/request-id-123'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+  });
+
+  describe('Healthcheck Methods', () => {
+    it('should get healthcheck', async () => {
+      const mockResponse: HealthcheckResponse = {
+        success: true,
+        data: {
+          leaderAddress: '127.0.0.1:7070',
+          leaderId: '1',
+          raftStats: {
+            applied_index: '162',
+            commit_index: '162',
+            fsm_pending: '0',
+            last_contact: '0',
+            last_log_index: '162',
+            last_log_term: '7',
+            last_snapshot_index: '55',
+            last_snapshot_term: '5',
+            latest_configuration: '[{Suffrage:Voter ID:1 Address:127.0.0.1:7070}]',
+            latest_configuration_index: '0',
+            num_peers: '0',
+            protocol_version: '3',
+            protocol_version_max: '3',
+            protocol_version_min: '0',
+            snapshot_version_max: '1',
+            snapshot_version_min: '0',
+            state: 'Leader',
+            term: '7',
+          },
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.healthcheck();
+
+      expect(result).toEqual(mockResponse);
+      expect(result.data.leaderAddress).toBe('127.0.0.1:7070');
+      expect(result.data.raftStats.state).toBe('Leader');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/healthcheck'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+  });
+
+  describe('AI Prompt Methods', () => {
+    it('should create job from prompt', async () => {
+      const mockResponse: PromptJobResponse[] = [
+        {
+          kind: 'REMINDER',
+          purpose: 'reminder',
+          subject: 'Weekly Report',
+          cronExpression: '0 9 * * 1',
+          timezone: 'America/New_York',
+          recipients: ['team@example.com'],
+        },
+      ];
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.createJobFromPrompt({
+        prompt: 'Send weekly reports every Monday at 9 AM',
+        timezone: 'America/New_York',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/prompt'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle 400 errors', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => 'Bad Request',
+        headers: new Headers(),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+
+      await expect(client.createAccount({ name: 'Test' })).rejects.toThrow(
+        'API error: 400'
+      );
+    });
+
+    it('should handle 401 errors', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => 'Unauthorized',
+        headers: new Headers(),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+
+      await expect(client.getAccount('1')).rejects.toThrow('API error: 401');
+    });
+
+    it('should handle 404 errors', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => 'Not Found',
+        headers: new Headers(),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+
+      await expect(client.getAccount('999')).rejects.toThrow('API error: 404');
+    });
+  });
+
+  describe('Authentication', () => {
+    it('should include API key headers', async () => {
+      const mockResponse: AccountResponse = {
+        success: true,
+        data: {
+          id: 1,
+          name: 'Test',
+          features: [],
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      await client.getAccount('1');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-API-Key': apiKey,
+            'X-Secret-Key': apiSecret,
+          }),
+        })
+      );
+    });
+
+    it('should include basic auth headers', async () => {
+      const mockResponse: HealthcheckResponse = {
+        success: true,
+        data: {
+          leaderAddress: '127.0.0.1:7070',
+          leaderId: '1',
+          raftStats: {
+            applied_index: '162',
+            commit_index: '162',
+            fsm_pending: '0',
+            last_contact: '0',
+            last_log_index: '162',
+            last_log_term: '7',
+            last_snapshot_index: '55',
+            last_snapshot_term: '5',
+            latest_configuration: '[]',
+            latest_configuration_index: '0',
+            num_peers: '0',
+            protocol_version: '3',
+            protocol_version_max: '3',
+            protocol_version_min: '0',
+            snapshot_version_max: '1',
+            snapshot_version_min: '0',
+            state: 'Leader',
+            term: '7',
+          },
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newBasicAuthClient(baseURL, 'v1', 'username', 'password');
+      await client.healthcheck();
+
+      const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const headers = callArgs[1].headers;
+      expect(headers['Authorization']).toContain('Basic');
+      expect(headers['X-Peer']).toBe('cmd');
+    });
+
+    it('should include account ID header when set', async () => {
+      const mockResponse: CredentialResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          archived: false,
+          apiKey: 'key',
+          apiSecret: 'secret',
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      await client.getCredential('1');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Account-ID': accountId,
+          }),
+        })
+      );
+    });
+
+    it('should allow account ID override', async () => {
+      const mockResponse: CredentialResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 456,
+          archived: false,
+          apiKey: 'key',
+          apiSecret: 'secret',
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      await client.getCredential('1', '456');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Account-ID': '456',
+          }),
+        })
+      );
+    });
+  });
+});
+

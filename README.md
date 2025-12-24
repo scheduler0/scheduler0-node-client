@@ -1,0 +1,553 @@
+# Scheduler0 Node.js Client
+
+A Node.js/TypeScript client library for interacting with the [Scheduler0 API](https://scheduler0.com). This client provides a convenient way to manage accounts, credentials, executions, executors, projects, jobs, features, create jobs from AI prompts, and monitor the health of your Scheduler0 cluster.
+
+## Features
+
+- **Account Management** *(Self-hosted only)*
+  - Create accounts
+  - Get account details
+  - Add/remove features from accounts
+  - *Note: These APIs are for users running Scheduler0 in their own infrastructure who need granular control over team access and resource usage.*
+
+- **Feature Management** *(Self-hosted only)*
+  - List available features
+  - *Note: These APIs are for users running Scheduler0 in their own infrastructure who need granular control over team access and resource usage.*
+
+- **Credentials Management**
+  - List credentials with pagination and ordering
+  - Create new credentials
+  - Get credential details
+  - Update credentials
+  - Delete credentials
+  - Archive credentials
+
+- **Executions Management**
+  - List job executions with date filtering
+  - Filter by project ID and job ID
+  - View execution details and logs
+
+- **Executors Management**
+  - List executors with pagination and ordering
+  - Create new executors (webhook, cloud function, container)
+  - Get executor details
+  - Update executors
+  - Delete executors
+
+- **Projects Management**
+  - List projects with pagination
+  - Create new projects
+  - Get project details
+  - Update projects
+  - Delete projects
+
+- **Jobs Management**
+  - List jobs with pagination and ordering
+  - Create new jobs with comprehensive scheduling options
+  - Batch create multiple jobs in a single request
+  - Get job details
+  - Update jobs
+  - Delete jobs
+
+- **AI-Powered Job Creation**
+  - Create job configurations from natural language prompts
+  - AI generates cron expressions, scheduling, and job metadata
+  - Supports purposes, events, recipients, and channels
+
+- **Async Tasks Management** *(Self-hosted only)*
+  - Get async task status by request ID
+  - *Note: These APIs are for users running Scheduler0 in their own infrastructure who need granular control over team access and resource usage.*
+
+- **Health Monitoring**
+  - Check cluster health
+  - View raft statistics
+  - Monitor leader status
+
+## Installation
+
+```bash
+npm install @scheduler0/scheduler0-node-client
+```
+
+## API Documentation
+
+- **OpenAPI Specification**: [openapi.json](https://api-reference.scheduler0.com) - Complete API specification
+
+## Authentication
+
+The Scheduler0 Node.js client supports multiple authentication methods:
+
+### 1. API Key + Secret Authentication (Default)
+Most endpoints require API Key and Secret authentication with an Account ID:
+
+```typescript
+import { Client } from '@scheduler0/scheduler0-node-client';
+
+const client = Client.newAPIClientWithAccount(
+  'http://localhost:7070',  // Base URL
+  'v1',                     // API Version
+  'your-api-key',           // API Key
+  'your-api-secret',        // API Secret
+  '123'                     // Account ID
+);
+```
+
+### 2. Basic Authentication (Peer Communication)
+For peer-to-peer communication:
+
+```typescript
+const client = Client.newBasicAuthClient(
+  'http://localhost:7070',  // Base URL
+  'v1',                     // API Version
+  'username',               // Username
+  'password'                // Password
+);
+```
+
+### 3. Options Pattern
+For more flexibility, use the options pattern:
+
+```typescript
+const client = new Client(
+  'http://localhost:7070',  // Base URL
+  'v1',                     // API Version
+  {
+    apiKey: 'api-key',
+    apiSecret: 'api-secret',
+    accountId: '123'
+  }
+);
+```
+
+## Usage
+
+### Managing Accounts
+
+```typescript
+// Create a new account
+const account = await client.createAccount({
+  name: 'My Account'
+});
+
+// Get account details
+const accountDetails = await client.getAccount('account-id');
+
+// Add feature to account
+await client.addFeatureToAccount('account-id', {
+  featureId: 1
+});
+
+// Remove feature from account
+await client.removeFeatureFromAccount('account-id', {
+  featureId: 1
+});
+```
+
+### Managing Features
+
+```typescript
+// List all available features
+const features = await client.listFeatures();
+```
+
+### Managing Credentials
+
+```typescript
+// List credentials with pagination and ordering
+const credentials = await client.listCredentials({
+  limit: 10,
+  offset: 0,
+  orderBy: 'date_created',
+  orderByDirection: 'desc'
+});
+
+// Create a new credential
+const credential = await client.createCredential({
+  createdBy: 'user-id'
+});
+
+// Get a specific credential
+const credentialDetails = await client.getCredential('credential-id');
+
+// Update a credential
+const updatedCredential = await client.updateCredential('credential-id', {
+  modifiedBy: 'user-id'
+});
+
+// Delete a credential
+await client.deleteCredential('credential-id', {
+  deletedBy: 'user-id'
+});
+
+// Archive a credential
+await client.archiveCredential('credential-id', {
+  archivedBy: 'user-id'
+});
+```
+
+### Managing Executions
+
+```typescript
+// List executions with date filtering
+const executions = await client.listExecutions({
+  startDate: '2024-01-01T00:00:00Z',  // Required: Start date (RFC3339 format)
+  endDate: '2024-12-31T23:59:59Z',    // Required: End date (RFC3339 format)
+  projectId: 0,                        // Optional: Project ID (0 for all)
+  jobId: 0,                            // Optional: Job ID (0 for all)
+  limit: 10,                            // Required: Maximum number of items
+  offset: 0                             // Required: Number of items to skip
+});
+```
+
+### Managing Executors
+
+```typescript
+// List executors with pagination and ordering
+const executors = await client.listExecutors({
+  limit: 10,
+  offset: 0,
+  orderBy: 'date_created',
+  orderByDirection: 'desc'
+});
+
+// Create a webhook executor
+const executor = await client.createExecutor({
+  name: 'webhook-executor',
+  type: 'webhook_url',
+  webhookUrl: 'https://example.com/webhook',
+  webhookMethod: 'POST',
+  webhookSecret: 'secret-key',
+  createdBy: 'user-id'
+});
+
+// Create a cloud function executor
+const cloudExecutor = await client.createExecutor({
+  name: 'cloud-function-executor',
+  type: 'cloud_function',
+  region: 'us-west-1',
+  cloudProvider: 'aws',
+  cloudResourceUrl: 'https://example.com/function',
+  cloudApiKey: 'api-key',
+  cloudApiSecret: 'api-secret',
+  createdBy: 'user-id'
+});
+
+// Get a specific executor
+const executorDetails = await client.getExecutor('executor-id');
+
+// Update an executor
+const updatedExecutor = await client.updateExecutor('executor-id', {
+  name: 'updated-executor',
+  modifiedBy: 'user-id'
+});
+
+// Delete an executor
+await client.deleteExecutor('executor-id', {
+  deletedBy: 'user-id'
+});
+```
+
+### Managing Projects
+
+```typescript
+// List projects with pagination and ordering
+const projects = await client.listProjects({
+  limit: 10,
+  offset: 0,
+  orderBy: 'date_created',
+  orderByDirection: 'desc'
+});
+
+// Create a new project
+const project = await client.createProject({
+  name: 'My Project',
+  description: 'Project description',
+  createdBy: 'user-id'
+});
+
+// Get a specific project
+const projectDetails = await client.getProject('project-id');
+
+// Update a project
+const updatedProject = await client.updateProject('project-id', {
+  description: 'Updated description',
+  modifiedBy: 'user-id'
+});
+
+// Delete a project
+await client.deleteProject('project-id', {
+  deletedBy: 'user-id'
+});
+```
+
+### Managing Jobs
+
+```typescript
+// List jobs with pagination and ordering
+const jobs = await client.listJobs({
+  projectId: '',              // Optional: Project ID to filter by (empty string for all)
+  limit: 10,
+  offset: 0,
+  orderBy: 'date_created',
+  orderByDirection: 'desc'
+});
+
+// Create a single job
+const job = await client.createJob({
+  projectId: 123,              // Required
+  timezone: 'UTC',              // Required
+  executorId: 456,              // Optional
+  data: 'job payload data',     // Optional
+  spec: '0 30 * * * *',          // Optional
+  startDate: '2024-01-01T00:00:00Z', // Optional
+  endDate: '2024-12-31T23:59:59Z',   // Optional
+  timezoneOffset: 0,           // Optional
+  retryMax: 3,                  // Optional
+  status: 'active',             // Optional
+  createdBy: 'user-id'          // Required
+});
+
+// Create multiple jobs in a single batch request
+const batchResult = await client.batchCreateJobs([
+  {
+    projectId: 123,
+    timezone: 'UTC',
+    data: 'job 1 payload',
+    spec: '0 30 * * * *',
+    startDate: '2024-01-01T00:00:00Z',
+    retryMax: 3,
+    createdBy: 'user-id'
+  },
+  {
+    projectId: 123,
+    timezone: 'UTC',
+    data: 'job 2 payload',
+    spec: '0 0 * * * *',
+    startDate: '2024-01-01T00:00:00Z',
+    retryMax: 5,
+    createdBy: 'user-id'
+  }
+]);
+
+// Get a specific job
+const jobDetails = await client.getJob('job-id');
+
+// Update a job
+const updatedJob = await client.updateJob('job-id', {
+  data: 'updated payload',
+  spec: '0 0 * * * *',
+  status: 'inactive',
+  modifiedBy: 'user-id'
+});
+
+// Delete a job
+await client.deleteJob('job-id', {
+  deletedBy: 'user-id'
+});
+```
+
+### AI-Powered Job Creation
+
+Create job configurations from natural language prompts using AI:
+
+```typescript
+// Create job configurations from a natural language prompt
+const promptRequest = {
+  prompt: 'Send weekly reports every Monday at 9 AM',
+  purposes: ['reporting', 'communication'],
+  events: ['weekly_cycle'],
+  recipients: ['team@example.com', 'manager@example.com'],
+  channels: ['email'],
+  timezone: 'America/New_York'
+};
+
+// Generate job configurations from the prompt
+// Note: This endpoint requires credits and validates credentials
+const jobConfigs = await client.createJobFromPrompt(promptRequest);
+
+// jobConfigs is an array of PromptJobResponse with generated configurations
+for (const config of jobConfigs) {
+  console.log(`Kind: ${config.kind}`);
+  console.log(`Cron Expression: ${config.cronExpression}`);
+  if (config.nextRunAt) {
+    console.log(`Next Run At: ${config.nextRunAt}`);
+  }
+  console.log(`Recipients: ${config.recipients}`);
+  
+  // Use the generated configuration to create actual jobs
+  const job = await client.createJob({
+    projectId: 123,
+    timezone: config.timezone || 'UTC',
+    spec: config.cronExpression || '',
+    createdBy: 'ai-prompt',
+    ...(config.startDate && { startDate: config.startDate }),
+    ...(config.endDate && { endDate: config.endDate }),
+    ...(config.subject && {
+      data: JSON.stringify({
+        subject: config.subject,
+        recipients: config.recipients
+      })
+    })
+  });
+  
+  console.log(`Job created with request ID: ${job.data}`);
+}
+```
+
+**Note**: The AI prompt endpoint requires:
+- Valid API credentials (API Key + Secret)
+- Account ID header
+- Sufficient credits (1 credit per prompt execution)
+
+### Managing Async Tasks
+
+```typescript
+// Get async task status
+const task = await client.getAsyncTask('request-id');
+```
+
+### Health Monitoring
+
+```typescript
+// Check cluster health (no authentication required)
+const health = await client.healthcheck();
+console.log(`Leader: ${health.data.leaderAddress}`);
+console.log(`Raft State: ${health.data.raftStats.state}`);
+```
+
+## Data Types
+
+### Job Status
+- `"active"` - Job is active and will be executed
+- `"inactive"` - Job is inactive and will not be executed
+
+### Executor Types
+- `"webhook_url"` - HTTP webhook executor
+- `"cloud_function"` - Cloud function executor
+- `"container"` - Container executor
+
+### Webhook Methods
+- `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`
+
+### Job Creation Behavior
+- **Single Job Creation**: `createJob()` internally uses batch creation with a single job
+- **Batch Job Creation**: `batchCreateJobs()` allows creating multiple jobs in one API call
+- **Backend API**: The `/api/v1/jobs` POST endpoint expects an array of jobs for batch processing
+- **Response Format**: Job creation returns `BatchJobResponse` with HTTP 202 Accepted status and a `Data` field containing the request ID (string) for async task tracking
+- **Async Tracking**: Use the request ID with `getAsyncTask()` to track job creation status
+
+## Error Handling
+
+The client throws errors for API errors. Check the error message for details:
+
+```typescript
+try {
+  const result = await client.createJob(job);
+} catch (error) {
+  if (error instanceof Error) {
+    if (error.message.includes('API error: 400')) {
+      // Handle bad request
+    } else if (error.message.includes('API error: 401')) {
+      // Handle unauthorized
+    } else if (error.message.includes('API error: 403')) {
+      // Handle forbidden
+    } else if (error.message.includes('API error: 404')) {
+      // Handle not found
+    }
+    console.error(error.message);
+  }
+}
+```
+
+## Account ID Requirements
+
+Most endpoints require the `X-Account-ID` header. The following endpoints require account ID:
+- `/api/v1/jobs/*`
+- `/api/v1/projects/*`
+- `/api/v1/credentials/*`
+- `/api/v1/executors/*`
+- `/api/v1/async-tasks/*`
+- `/api/v1/executions`
+- `/api/v1/prompt` (AI prompt endpoint)
+
+Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
+
+### Per-Request Account ID Override
+
+You can override the Account ID set during client initialization on a per-request basis:
+
+```typescript
+// Override Account ID for a specific request
+const projects = await client.listProjects({
+  accountId: 456,  // Overrides the client's default Account ID
+  limit: 10,
+  offset: 0
+});
+
+// Or pass as a parameter for other methods
+const credential = await client.createCredential(
+  { createdBy: 'user-id' },
+  '456'  // Account ID override
+);
+```
+
+## Credits and AI Features
+
+The AI prompt endpoint (`/api/v1/prompt`) requires:
+- **Credits**: 1 credit per prompt execution
+- **Authentication**: Valid API Key + Secret credentials
+- **Account ID**: Required header for credit deduction
+
+Credits are automatically deducted when the prompt is successfully processed. If the prompt processing fails after credit deduction, credits are not refunded.
+
+## TypeScript Support
+
+This library is written in TypeScript and includes full type definitions. All types are exported from the main module:
+
+```typescript
+import { Client, Job, Project, Executor } from '@scheduler0/scheduler0-node-client';
+```
+
+## Requirements
+
+- Node.js >= 18.0.0
+- TypeScript >= 5.0 (for TypeScript projects)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Building
+
+```bash
+# Build TypeScript to JavaScript
+npm run build
+```
+
+### CI/CD
+
+This project uses GitHub Actions for continuous integration. Tests are automatically run on:
+- Push to `main`, `master`, or `develop` branches
+- Pull requests to `main`, `master`, or `develop` branches
+
+The CI pipeline tests against Node.js 18, 20, and 22.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
