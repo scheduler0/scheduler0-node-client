@@ -473,11 +473,18 @@ describe('Client', () => {
 
       expect(result).toEqual(mockResponse);
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/executions?startDate=2025-01-01T00%3A00%3A00Z&endDate=2025-12-31T23%3A59%3A59Z&limit=10&offset=0'),
+        expect.stringContaining('/api/v1/executions'),
         expect.objectContaining({
           method: 'GET',
         })
       );
+      // Verify query parameters are present (order doesn't matter)
+      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const url = fetchCall[0];
+      expect(url).toContain('startDate=2025-01-01T00%3A00%3A00Z');
+      expect(url).toContain('endDate=2025-12-31T23%3A59%3A59Z');
+      expect(url).toContain('limit=10');
+      expect(url).toContain('offset=0');
     });
 
     it('should list executions with optional parameters', async () => {
