@@ -14,6 +14,11 @@ import {
   ExecutionResponse,
   PaginatedExecutionsResponse,
   ListExecutionsParams,
+  GetDateRangeAnalyticsParams,
+  DateRangeAnalyticsAPIResponse,
+  ExecutionTotalsAPIResponse,
+  CleanupOldLogsRequestBody,
+  CleanupOldLogsResponse,
   ExecutorCreateRequestBody,
   ExecutorUpdateRequestBody,
   ExecutorDeleteRequestBody,
@@ -299,16 +304,29 @@ export class Client {
   async listExecutions(params: ListExecutionsParams): Promise<PaginatedExecutionsResponse> {
     const accountIdOverride = params.accountId ? String(params.accountId) : undefined;
     const queryParams: Record<string, string | number> = {
-      startDate: params.startDate,
-      endDate: params.endDate,
       limit: params.limit,
       offset: params.offset,
     };
+    if (params.startDate) {
+      queryParams.startDate = params.startDate;
+    }
+    if (params.endDate) {
+      queryParams.endDate = params.endDate;
+    }
     if (params.projectId !== undefined) {
       queryParams.projectId = params.projectId;
     }
     if (params.jobId !== undefined) {
       queryParams.jobId = params.jobId;
+    }
+    if (params.state) {
+      queryParams.state = params.state;
+    }
+    if (params.orderBy) {
+      queryParams.orderBy = params.orderBy;
+    }
+    if (params.orderDirection) {
+      queryParams.orderDirection = params.orderDirection;
     }
     return this.request<PaginatedExecutionsResponse>(
       'GET',
@@ -316,6 +334,57 @@ export class Client {
       undefined,
       queryParams,
       accountIdOverride
+    );
+  }
+
+  async getDateRangeAnalytics(
+    params: GetDateRangeAnalyticsParams,
+    accountIdOverride?: string
+  ): Promise<DateRangeAnalyticsAPIResponse> {
+    const accountID = accountIdOverride || (params.accountId ? String(params.accountId) : undefined);
+    const queryParams: Record<string, string> = {
+      startDate: params.startDate,
+      startTime: params.startTime,
+    };
+    return this.request<DateRangeAnalyticsAPIResponse>(
+      'GET',
+      '/executions/analytics',
+      undefined,
+      queryParams,
+      accountID
+    );
+  }
+
+  async getExecutionTotals(
+    accountId: number,
+    accountIdOverride?: string
+  ): Promise<ExecutionTotalsAPIResponse> {
+    const accountID = accountIdOverride || String(accountId);
+    return this.request<ExecutionTotalsAPIResponse>(
+      'GET',
+      '/executions/totals',
+      undefined,
+      undefined,
+      accountID
+    );
+  }
+
+  async cleanupOldExecutionLogs(
+    accountId: string,
+    retentionMonths: number,
+    accountIdOverride?: string
+  ): Promise<CleanupOldLogsResponse> {
+    const accountID = accountIdOverride || accountId;
+    const body: CleanupOldLogsRequestBody = {
+      accountId,
+      retentionMonths,
+    };
+    return this.request<CleanupOldLogsResponse>(
+      'POST',
+      '/executions/cleanup-old-logs',
+      body,
+      undefined,
+      accountID
     );
   }
 

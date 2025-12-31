@@ -15,6 +15,9 @@ import {
   HealthcheckResponse,
   FeaturesResponse,
   PromptJobResponse,
+  DateRangeAnalyticsAPIResponse,
+  ExecutionTotalsAPIResponse,
+  CleanupOldLogsResponse,
 } from '../types';
 
 // Mock fetch globally
@@ -473,6 +476,200 @@ describe('Client', () => {
         expect.stringContaining('/api/v1/executions?startDate=2025-01-01T00%3A00%3A00Z&endDate=2025-12-31T23%3A59%3A59Z&limit=10&offset=0'),
         expect.objectContaining({
           method: 'GET',
+        })
+      );
+    });
+
+    it('should list executions with optional parameters', async () => {
+      const mockResponse: PaginatedExecutionsResponse = {
+        success: true,
+        data: {
+          total: 1,
+          offset: 0,
+          limit: 10,
+          executions: [
+            {
+              id: 1,
+              accountId: 123,
+              uniqueId: 'unique-1',
+              state: 1,
+              nodeId: 1,
+              jobId: 1,
+              lastExecutionDatetime: '2025-01-01T00:00:00Z',
+              nextExecutionDatetime: '2025-01-02T00:00:00Z',
+              jobQueueVersion: 1,
+              executionVersion: 1,
+              dateCreated: '2025-01-01T00:00:00Z',
+              dateModified: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.listExecutions({
+        limit: 10,
+        offset: 0,
+        state: 'completed',
+        orderBy: 'dateCreated',
+        orderDirection: 'DESC',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executions?limit=10&offset=0&state=completed&orderBy=dateCreated&orderDirection=DESC'),
+        expect.objectContaining({
+          method: 'GET',
+        })
+      );
+    });
+
+    it('should get date range analytics', async () => {
+      const mockResponse: DateRangeAnalyticsAPIResponse = {
+        success: true,
+        data: {
+          accountId: 123,
+          timezone: 'UTC',
+          startDate: '2025-01-01',
+          startTime: '00:00:00',
+          endDate: '2025-01-01',
+          endTime: '23:59:59',
+          points: [
+            {
+              date: '2025-01-01',
+              time: '00:00:00',
+              scheduled: 10,
+              success: 8,
+              failed: 2,
+            },
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.getDateRangeAnalytics({
+        startDate: '2025-01-01',
+        startTime: '00:00:00',
+        accountId: 123,
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executions/analytics?startDate=2025-01-01&startTime=00%3A00%3A00'),
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'X-Account-ID': accountId,
+          }),
+        })
+      );
+    });
+
+    it('should get execution totals', async () => {
+      const mockResponse: ExecutionTotalsAPIResponse = {
+        success: true,
+        data: {
+          accountId: 123,
+          scheduled: 100,
+          success: 80,
+          failed: 20,
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.getExecutionTotals(123);
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executions/totals'),
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'X-Account-ID': '123',
+          }),
+        })
+      );
+    });
+
+    it('should cleanup old execution logs', async () => {
+      const mockResponse: CleanupOldLogsResponse = {
+        success: true,
+        data: {
+          message: 'Old execution logs cleaned up successfully for account 123',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.cleanupOldExecutionLogs('123', 6);
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executions/cleanup-old-logs'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'X-Account-ID': '123',
+          }),
+          body: JSON.stringify({
+            accountId: '123',
+            retentionMonths: 6,
+          }),
         })
       );
     });

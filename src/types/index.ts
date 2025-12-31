@@ -134,10 +134,13 @@ export interface PaginatedExecutionsResponse {
 
 export interface ListExecutionsParams {
   accountId?: number;
-  startDate: string; // RFC3339 format
-  endDate: string; // RFC3339 format
+  startDate?: string; // RFC3339 format (optional)
+  endDate?: string; // RFC3339 format (optional)
   projectId?: number;
   jobId?: number;
+  state?: 'scheduled' | 'completed' | 'failed';
+  orderBy?: 'dateCreated' | 'lastExecutionDateTime' | 'nextExecutionDateTime';
+  orderDirection?: 'ASC' | 'DESC';
   limit: number;
   offset: number;
 }
@@ -428,5 +431,59 @@ export interface PromptJobResponse {
   endDate?: string;
   timezone?: string;
   metadata?: Record<string, any>;
+}
+
+// Execution Analytics Types
+export interface DateRangeAnalyticsPoint {
+  date: string;
+  time: string;
+  scheduled: number;
+  success: number;
+  failed: number;
+}
+
+export interface DateRangeAnalyticsResponse {
+  accountId: number;
+  timezone: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  points: DateRangeAnalyticsPoint[];
+}
+
+export interface DateRangeAnalyticsAPIResponse {
+  success: boolean;
+  data: DateRangeAnalyticsResponse;
+}
+
+export interface GetDateRangeAnalyticsParams {
+  startDate: string; // YYYY-MM-DD format
+  startTime: string; // HH:MM:SS or HH:MM format
+  accountId?: number;
+}
+
+export interface ExecutionTotalsResponse {
+  accountId: number;
+  scheduled: number;
+  success: number;
+  failed: number;
+}
+
+export interface ExecutionTotalsAPIResponse {
+  success: boolean;
+  data: ExecutionTotalsResponse;
+}
+
+export interface CleanupOldLogsRequestBody {
+  accountId: string;
+  retentionMonths: number;
+}
+
+export interface CleanupOldLogsResponse {
+  success: boolean;
+  data: {
+    message: string;
+  };
 }
 
