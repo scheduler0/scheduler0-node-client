@@ -22,6 +22,27 @@ export interface AccountResponse {
   data: Account;
 }
 
+export interface AccountJobExecutionsCount {
+  id: number;
+  accountId: number;
+  executionCount: number;
+  dateCreated: string;
+  dateModified: string;
+  nextResetDate: string;
+}
+
+export interface AccountExecutionCountResponse {
+  success: boolean;
+  data: AccountJobExecutionsCount;
+}
+
+export interface AccountExecutionCountIncreaseResponse {
+  success: boolean;
+  data: {
+    newExecutionCount: number;
+  };
+}
+
 // Feature Types
 export interface Feature {
   id: number;

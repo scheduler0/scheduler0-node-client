@@ -1,6 +1,8 @@
 import {
   AccountCreateRequestBody,
   AccountResponse,
+  AccountExecutionCountResponse,
+  AccountExecutionCountIncreaseResponse,
   FeatureRequest,
   FeatureRequestResponse,
   FeaturesResponse,
@@ -235,6 +237,14 @@ export class Client {
 
   async getAccount(id: string): Promise<AccountResponse> {
     return this.request<AccountResponse>('GET', `/accounts/${id}`);
+  }
+
+  async getAccountExecutionCount(accountId: string): Promise<AccountExecutionCountResponse> {
+    return this.request<AccountExecutionCountResponse>('GET', `/accounts/${accountId}/execution-count`);
+  }
+
+  async increaseAccountExecutionCount(accountId: string, count: number): Promise<AccountExecutionCountIncreaseResponse> {
+    return this.request<AccountExecutionCountIncreaseResponse>('PUT', `/accounts/${accountId}/execution-count`, { count });
   }
 
   async addFeatureToAccount(accountId: string, body: FeatureRequest): Promise<FeatureRequestResponse> {
