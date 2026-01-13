@@ -44,6 +44,10 @@ import {
   HealthcheckResponse,
   PromptJobRequest,
   PromptJobResponse,
+  BackupRestoreResponse,
+  BackupRestoreProgressResponse,
+  BackupToFileRequest,
+  RestoreRequest,
 } from './types';
 
 export interface ClientOptions {
@@ -594,6 +598,38 @@ export class Client {
     } catch (e) {
       throw new Error(`Failed to parse response: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+  // Backup/Restore methods
+
+  /**
+   * Initiate an automatic timestamped backup
+   */
+  async backupDatabase(): Promise<BackupRestoreResponse> {
+    return this.request<BackupRestoreResponse>('POST', '/cluster/backup');
+  }
+
+  /**
+   * Initiate a backup to a specific file path
+   */
+  async backupDatabaseToFile(destPath: string): Promise<BackupRestoreResponse> {
+    const body: BackupToFileRequest = { destPath };
+    return this.request<BackupRestoreResponse>('POST', '/cluster/backup-to-file', body);
+  }
+
+  /**
+   * Initiate a restore from a backup file
+   */
+  async restoreDatabase(backupPath: string): Promise<BackupRestoreResponse> {
+    const body: RestoreRequest = { backupPath };
+    return this.request<BackupRestoreResponse>('POST', '/cluster/restore', body);
+  }
+
+  /**
+   * Get the current backup/restore progress
+   */
+  async getBackupRestoreProgress(): Promise<BackupRestoreProgressResponse> {
+    return this.request<BackupRestoreProgressResponse>('GET', '/cluster/backup-restore-progress');
   }
 }
 

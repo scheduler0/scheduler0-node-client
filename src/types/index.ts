@@ -1,3 +1,34 @@
+// Backup/Restore Types
+export interface BackupRestoreProgress {
+  operationType: string; // "backup" | "restore" | "backup-to-file"
+  status: string;        // "idle" | "in-progress" | "completed" | "failed"
+  progress: number;      // 0-100
+  message: string;       // Progress message or error
+  startTime: string;
+  endTime: string;
+  backupPath: string;    // Result path for backup operations
+}
+
+export interface BackupRestoreResponse {
+  success: boolean;
+  data: {
+    status: string;
+  };
+}
+
+export interface BackupRestoreProgressResponse {
+  success: boolean;
+  data: BackupRestoreProgress;
+}
+
+export interface BackupToFileRequest {
+  destPath: string;
+}
+
+export interface RestoreRequest {
+  backupPath: string;
+}
+
 // Account Types
 export interface Account {
   id: number;
