@@ -1,32 +1,14 @@
 // Backup/Restore Types
-export interface BackupRestoreProgress {
-  operationType: string; // "backup" | "restore" | "backup-to-file"
-  status: string;        // "idle" | "in-progress" | "completed" | "failed"
-  progress: number;      // 0-100
-  message: string;       // Progress message or error
-  startTime: string;
-  endTime: string;
-  backupPath: string;    // Result path for backup operations
-}
-
 export interface BackupRestoreResponse {
   success: boolean;
   data: {
     status: string;
+    requestId?: string;
   };
 }
 
-export interface BackupRestoreProgressResponse {
-  success: boolean;
-  data: BackupRestoreProgress;
-}
-
-export interface BackupToFileRequest {
-  destPath: string;
-}
-
 export interface RestoreRequest {
-  backupPath: string;
+  filePath: string; // Backup file name (S3 object key when S3 configured, or local path)
 }
 
 // Account Types
@@ -97,6 +79,8 @@ export interface FeaturesResponse {
 }
 
 // Credential Types
+export type CredentialScope = 'read' | 'write' | 'execute';
+
 export interface Credential {
   id: number;
   accountId: number;
@@ -110,11 +94,15 @@ export interface Credential {
   modifiedBy?: string;
   deletedBy?: string;
   archivedBy?: string;
+  expiresAt?: string;
+  scopes?: CredentialScope[];
 }
 
 export interface CredentialCreateRequestBody {
   archived?: boolean;
   createdBy: string;
+  // Required by the API. Must be a non-empty subset of {read, write, execute}.
+  scopes: CredentialScope[];
 }
 
 export interface CredentialArchiveRequestBody {

@@ -258,6 +258,8 @@ describe('Client', () => {
           apiSecret: 'new-secret',
           dateCreated: '2025-01-01T00:00:00Z',
           createdBy: 'user-1',
+          expiresAt: '2025-04-01T00:00:00Z',
+          scopes: ['read', 'write', 'execute'],
         },
       };
 
@@ -276,14 +278,22 @@ describe('Client', () => {
         apiSecret,
         accountId
       );
-      const result = await client.createCredential({ createdBy: 'user-1' });
+      const result = await client.createCredential({
+        createdBy: 'user-1',
+        scopes: ['read', 'write', 'execute'],
+      });
 
       expect(result).toEqual(mockResponse);
+      expect(result.data.expiresAt).toBe('2025-04-01T00:00:00Z');
+      expect(result.data.scopes).toEqual(['read', 'write', 'execute']);
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/v1/credentials'),
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ createdBy: 'user-1' }),
+          body: JSON.stringify({
+            createdBy: 'user-1',
+            scopes: ['read', 'write', 'execute'],
+          }),
         })
       );
     });

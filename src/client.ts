@@ -45,8 +45,6 @@ import {
   PromptJobRequest,
   PromptJobResponse,
   BackupRestoreResponse,
-  BackupRestoreProgressResponse,
-  BackupToFileRequest,
   RestoreRequest,
 } from './types';
 
@@ -610,26 +608,12 @@ export class Client {
   }
 
   /**
-   * Initiate a backup to a specific file path
+   * Initiate a restore from a backup file.
+   * fileName is the backup file name (S3 object key when S3 configured, or local path).
    */
-  async backupDatabaseToFile(destPath: string): Promise<BackupRestoreResponse> {
-    const body: BackupToFileRequest = { destPath };
-    return this.request<BackupRestoreResponse>('POST', '/cluster/backup-to-file', body);
-  }
-
-  /**
-   * Initiate a restore from a backup file
-   */
-  async restoreDatabase(backupPath: string): Promise<BackupRestoreResponse> {
-    const body: RestoreRequest = { backupPath };
+  async restoreDatabase(fileName: string): Promise<BackupRestoreResponse> {
+    const body: RestoreRequest = { filePath: fileName };
     return this.request<BackupRestoreResponse>('POST', '/cluster/restore', body);
-  }
-
-  /**
-   * Get the current backup/restore progress
-   */
-  async getBackupRestoreProgress(): Promise<BackupRestoreProgressResponse> {
-    return this.request<BackupRestoreProgressResponse>('GET', '/cluster/backup-restore-progress');
   }
 }
 
