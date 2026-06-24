@@ -29,7 +29,7 @@ A Node.js/TypeScript client library for interacting with the [Scheduler0 API](ht
 
 - **Executors Management**
   - List executors with pagination and ordering
-  - Create new executors (webhook, cloud function, container)
+  - Create new executors (webhook, cloud function)
   - Get executor details
   - Update executors
   - Delete executors
@@ -373,7 +373,7 @@ const promptRequest = {
   events: ['weekly_cycle'],
   recipients: ['team@example.com', 'manager@example.com'],
   channels: ['email'],
-  timezone: 'America/New_York'
+  timezone: 'America/New_York' // Optional IANA timezone; defaults to "UTC" when omitted.
 };
 
 // Generate job configurations from the prompt
@@ -414,6 +414,8 @@ for (const config of jobConfigs) {
 - Account ID header
 - Sufficient credits (1 credit per prompt execution)
 
+The `timezone` field is optional. When omitted, the AI assumes `UTC`. When set to an IANA name (e.g. `'America/New_York'`), the AI interprets relative phrases like *"9am tomorrow"* in that timezone and emits `nextRunAt` / `startDate` / `endDate` with the matching numeric offset. Invalid timezone strings are rejected by the API with `400 Bad Request`. In a browser, you can pass `Intl.DateTimeFormat().resolvedOptions().timeZone` to schedule in the user's local time.
+
 ### Managing Async Tasks
 
 ```typescript
@@ -439,7 +441,6 @@ console.log(`Raft State: ${health.data.raftStats.state}`);
 ### Executor Types
 - `"webhook_url"` - HTTP webhook executor
 - `"cloud_function"` - Cloud function executor
-- `"container"` - Container executor
 
 ### Webhook Methods
 - `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`

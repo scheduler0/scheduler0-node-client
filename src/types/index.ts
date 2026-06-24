@@ -39,9 +39,24 @@ export interface AccountJobExecutionsCount {
   id: number;
   accountId: number;
   executionCount: number;
+  tokens: number;
   dateCreated: string;
   dateModified: string;
   nextResetDate: string;
+}
+
+export interface AccountTokensResponse {
+  success: boolean;
+  data: {
+    tokens: number;
+  };
+}
+
+export interface AccountTokensAddResponse {
+  success: boolean;
+  data: {
+    newBalance: number;
+  };
 }
 
 export interface AccountExecutionCountResponse {
@@ -86,7 +101,12 @@ export interface Credential {
   accountId: number;
   archived: boolean;
   apiKey: string;
-  apiSecret: string;
+  /**
+   * Returned exactly once, in the 201 create response.
+   * The server stores only the encrypted form and cannot return it again.
+   * Save this value immediately in your secret manager.
+   */
+  plaintextSecret?: string;
   dateCreated: string;
   dateModified?: string;
   dateDeleted?: string;
@@ -141,6 +161,14 @@ export interface ListCredentialsParams {
   orderByDirection?: 'asc' | 'desc';
 }
 
+export interface RotateSecretResponse {
+  success: boolean;
+  data: {
+    /** Number of credentials whose api_secret was re-encrypted with the new SecretKey. */
+    rotated: number;
+  };
+}
+
 // Execution Types
 export interface Execution {
   id: number;
@@ -178,7 +206,7 @@ export interface ListExecutionsParams {
   endDate?: string; // RFC3339 format (optional)
   projectId?: number;
   jobId?: number;
-  state?: 'scheduled' | 'completed' | 'failed';
+  state?: 'scheduled' | 'success' | 'failed';
   orderBy?: 'dateCreated' | 'lastExecutionDateTime' | 'nextExecutionDateTime';
   orderDirection?: 'ASC' | 'DESC';
   limit: number;
@@ -190,7 +218,7 @@ export interface Executor {
   id: number;
   accountId: number;
   name: string;
-  type: 'cloud_function' | 'container' | 'webhook_url';
+  type: 'cloud_function' | 'webhook_url';
   region?: string;
   cloudProvider?: string;
   cloudResourceUrl?: string;
@@ -214,7 +242,7 @@ export interface ExecutorResponse {
 
 export interface ExecutorCreateRequestBody {
   name?: string;
-  type?: 'cloud_function' | 'container' | 'webhook_url';
+  type?: 'cloud_function' | 'webhook_url';
   region?: string;
   cloudProvider?: string;
   cloudResourceUrl?: string;
@@ -228,7 +256,7 @@ export interface ExecutorCreateRequestBody {
 
 export interface ExecutorUpdateRequestBody {
   name?: string;
-  type?: 'cloud_function' | 'container' | 'webhook_url';
+  type?: 'cloud_function' | 'webhook_url';
   region?: string;
   cloudProvider?: string;
   cloudResourceUrl?: string;
@@ -446,6 +474,25 @@ export interface HealthcheckResponse {
   data: HealthcheckData;
 }
 
+// Account AI Settings Types
+export interface AccountAISettings {
+  account_id?: number;
+  provider?: string;
+  model?: string;
+  openai_api_key?: string;
+  anthropic_api_key?: string;
+  bedrock_access_key_id?: string;
+  bedrock_secret_key?: string;
+  bedrock_region?: string;
+  date_created?: string;
+  date_modified?: string;
+}
+
+export interface AccountAISettingsResponse {
+  success: boolean;
+  data: AccountAISettings;
+}
+
 // AI Prompt Types
 export interface PromptJobRequest {
   prompt: string;
@@ -471,6 +518,16 @@ export interface PromptJobResponse {
   endDate?: string;
   timezone?: string;
   metadata?: Record<string, any>;
+}
+
+export interface PromptProviderResult {
+  provider: string;
+  model: string;
+  jobs: PromptJobResponse[];
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  durationMs: number;
 }
 
 // Execution Analytics Types

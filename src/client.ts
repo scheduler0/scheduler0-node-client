@@ -3,6 +3,10 @@ import {
   AccountResponse,
   AccountExecutionCountResponse,
   AccountExecutionCountIncreaseResponse,
+  AccountTokensResponse,
+  AccountTokensAddResponse,
+  AccountAISettings,
+  AccountAISettingsResponse,
   FeatureRequest,
   FeatureRequestResponse,
   FeaturesResponse,
@@ -13,6 +17,7 @@ import {
   CredentialResponse,
   PaginatedCredentialsResponse,
   ListCredentialsParams,
+  RotateSecretResponse,
   ExecutionResponse,
   PaginatedExecutionsResponse,
   ListExecutionsParams,
@@ -43,7 +48,7 @@ import {
   AsyncTaskResponse,
   HealthcheckResponse,
   PromptJobRequest,
-  PromptJobResponse,
+  PromptProviderResult,
   BackupRestoreResponse,
   RestoreRequest,
 } from './types';
@@ -312,6 +317,17 @@ export class Client {
     return this.request<void>('POST', `/credentials/${id}/archive`, body, undefined, accountIdOverride);
   }
 
+  /**
+   * Re-encrypt all active, non-expired credentials with the new SecretKey.
+   *
+   * **Self-Hosting Only.** The operator must update `SecretKey` in the secrets
+   * source before calling this method. Requires a basic-auth client instance
+   * (created with `username` + `password` options). The operation is resumable.
+   */
+  async rotateCredentialSecret(): Promise<RotateSecretResponse> {
+    return this.request<RotateSecretResponse>('POST', '/credentials/rotate-secret', undefined);
+  }
+
   // Execution Methods
   async listExecutions(params: ListExecutionsParams): Promise<PaginatedExecutionsResponse> {
     const accountIdOverride = params.accountId ? String(params.accountId) : undefined;
@@ -533,8 +549,7 @@ export class Client {
   }
 
   // AI Prompt Methods
-  async createJobFromPrompt(body: PromptJobRequest, accountIdOverride?: string): Promise<PromptJobResponse[]> {
-    // The prompt endpoint returns an array directly, not wrapped in { success, data }
+  async createJobFromPrompt(body: PromptJobRequest, accountIdOverride?: string): Promise<PromptProviderResult[]> {
     const versionPrefix = `/api/${this.version}`;
     const url = `${this.baseURL}${versionPrefix}/prompt`;
 
@@ -542,7 +557,6 @@ export class Client {
       'Content-Type': 'application/json',
     };
 
-    // Set authentication
     if (this.username && this.password) {
       const auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
       headers['Authorization'] = `Basic ${auth}`;
@@ -552,7 +566,6 @@ export class Client {
       headers['X-Secret-Key'] = this.apiSecret;
     }
 
-    // Add account ID
     const accountID = accountIdOverride || this.accountId;
     if (accountID) {
       headers['X-Account-ID'] = accountID;
@@ -564,7 +577,6 @@ export class Client {
       body: JSON.stringify(body),
     });
 
-    // Handle errors
     if (response.status >= 400) {
       const responseText = await response.text();
       let errorData: any;
@@ -573,29 +585,47 @@ export class Client {
       } catch {
         errorData = responseText;
       }
-      
+
       if (errorData && typeof errorData === 'object' && 'success' in errorData && 'data' in errorData) {
-        const errorMessage = typeof errorData.data === 'string' 
-          ? errorData.data 
+        const errorMessage = typeof errorData.data === 'string'
+          ? errorData.data
           : JSON.stringify(errorData.data);
         throw new Error(`API error: ${response.status} - ${errorMessage}`);
       }
       throw new Error(`API error: ${response.status} - ${responseText}`);
     }
 
-    // Parse response - prompt endpoint returns array directly
     const responseText = await response.text();
     if (!responseText) {
       return [];
     }
 
     try {
-      const data = JSON.parse(responseText);
-      // Return array directly (API returns array, not wrapped in { success, data })
-      return Array.isArray(data) ? data as PromptJobResponse[] : [];
+      const envelope = JSON.parse(responseText) as { success: boolean; data: PromptProviderResult[] };
+      return Array.isArray(envelope.data) ? envelope.data : [];
     } catch (e) {
       throw new Error(`Failed to parse response: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+  // Account AI Settings Methods
+
+  async getAccountAISettings(accountIdOverride?: string): Promise<AccountAISettingsResponse> {
+    return this.request<AccountAISettingsResponse>('GET', '/account/ai-settings', undefined, undefined, accountIdOverride);
+  }
+
+  async upsertAccountAISettings(body: AccountAISettings, accountIdOverride?: string): Promise<{ success: boolean; data: { message: string } }> {
+    return this.request<{ success: boolean; data: { message: string } }>('PUT', '/account/ai-settings', body, undefined, accountIdOverride);
+  }
+
+  // Account Tokens Methods
+
+  async getAccountTokens(accountId: string): Promise<AccountTokensResponse> {
+    return this.request<AccountTokensResponse>('GET', `/accounts/${accountId}/tokens`, undefined, undefined, accountId);
+  }
+
+  async addAccountTokens(accountId: string, amount: number): Promise<AccountTokensAddResponse> {
+    return this.request<AccountTokensAddResponse>('PUT', `/accounts/${accountId}/tokens/add`, { amount }, undefined, accountId);
   }
 
   // Backup/Restore methods

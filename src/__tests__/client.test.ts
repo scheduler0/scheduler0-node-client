@@ -205,7 +205,6 @@ describe('Client', () => {
               accountId: 123,
               archived: false,
               apiKey: 'mock-key',
-              apiSecret: 'mock-secret',
               dateCreated: '2025-01-01T00:00:00Z',
               createdBy: 'user-1',
             },
@@ -255,7 +254,7 @@ describe('Client', () => {
           accountId: 123,
           archived: false,
           apiKey: 'new-key',
-          apiSecret: 'new-secret',
+          plaintextSecret: 'new-plaintext-secret',
           dateCreated: '2025-01-01T00:00:00Z',
           createdBy: 'user-1',
           expiresAt: '2025-04-01T00:00:00Z',
@@ -306,7 +305,6 @@ describe('Client', () => {
           accountId: 123,
           archived: false,
           apiKey: 'get-key',
-          apiSecret: 'get-secret',
           dateCreated: '2025-01-01T00:00:00Z',
         },
       };
@@ -345,7 +343,6 @@ describe('Client', () => {
           accountId: 123,
           archived: true,
           apiKey: 'updated-key',
-          apiSecret: 'updated-secret',
           dateCreated: '2025-01-01T00:00:00Z',
           modifiedBy: 'user-1',
         },
@@ -541,14 +538,14 @@ describe('Client', () => {
       const result = await client.listExecutions({
         limit: 10,
         offset: 0,
-        state: 'completed',
+        state: 'success',
         orderBy: 'dateCreated',
         orderDirection: 'DESC',
       });
 
       expect(result).toEqual(mockResponse);
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/executions?limit=10&offset=0&state=completed&orderBy=dateCreated&orderDirection=DESC'),
+        expect.stringContaining('/api/v1/executions?limit=10&offset=0&state=success&orderBy=dateCreated&orderDirection=DESC'),
         expect.objectContaining({
           method: 'GET',
         })
@@ -1457,11 +1454,12 @@ describe('Client', () => {
         },
       ];
 
+      const envelope = { success: true, data: mockResponse };
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => mockResponse,
-        text: async () => JSON.stringify(mockResponse),
+        json: async () => envelope,
+        text: async () => JSON.stringify(envelope),
         headers: new Headers({ 'content-type': 'application/json' }),
       });
 
@@ -1636,7 +1634,6 @@ describe('Client', () => {
           accountId: 123,
           archived: false,
           apiKey: 'key',
-          apiSecret: 'secret',
           dateCreated: '2025-01-01T00:00:00Z',
         },
       };
@@ -1676,7 +1673,6 @@ describe('Client', () => {
           accountId: 456,
           archived: false,
           apiKey: 'key',
-          apiSecret: 'secret',
           dateCreated: '2025-01-01T00:00:00Z',
         },
       };
