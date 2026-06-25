@@ -8,10 +8,14 @@ A Node.js/TypeScript client library for interacting with the [Scheduler0 API](ht
   - Create accounts
   - Get account details
   - Add/remove features from accounts
+  - Get/increase the monthly execution count
+  - Get/add platform tokens
+  - Configure per-account AI provider settings (BYOK)
   - *Note: These APIs are for users running Scheduler0 in their own infrastructure who need granular control over team access and resource usage.*
 
 - **Feature Management** *(Self-hosted only)*
   - List available features
+  - Add/remove all features for an account
   - *Note: These APIs are for users running Scheduler0 in their own infrastructure who need granular control over team access and resource usage.*
 
 - **Credentials Management**
@@ -21,11 +25,14 @@ A Node.js/TypeScript client library for interacting with the [Scheduler0 API](ht
   - Update credentials
   - Delete credentials
   - Archive credentials
+  - Rotate the server secret key
 
 - **Executions Management**
   - List job executions with date filtering
   - Filter by project ID and job ID
   - View execution details and logs
+  - Date-range analytics and lifetime totals
+  - Clean up old execution logs
 
 - **Executors Management**
   - List executors with pagination and ordering
@@ -33,6 +40,15 @@ A Node.js/TypeScript client library for interacting with the [Scheduler0 API](ht
   - Get executor details
   - Update executors
   - Delete executors
+
+- **Local Executors Management**
+  - Register local executors
+  - Pull assigned jobs for a local executor
+  - Report local execution results in batches
+
+- **Backup & Restore** *(Self-hosted only)*
+  - Start an online database backup
+  - Restore from a backup file
 
 - **Projects Management**
   - List projects with pagination
@@ -156,6 +172,32 @@ await client.addFeatureToAccount('account-id', {
 await client.removeFeatureFromAccount('account-id', {
   featureId: 1
 });
+
+// Get / increase the account's monthly execution count
+const count = await client.getAccountExecutionCount('account-id');
+const increased = await client.increaseAccountExecutionCount('account-id', 10000);
+
+// Get / add platform tokens
+const tokens = await client.getAccountTokens('account-id');
+const added = await client.addAccountTokens('account-id', 1000);
+```
+
+> **Note:** Account, token, and execution-count endpoints are self-hosting only and require Basic Authentication.
+
+### AI Provider Settings (Bring Your Own Key)
+
+Configure a per-account model provider and key so `createJobFromPrompt` uses your own credentials. Supported providers: `openai`, `anthropic`, `bedrock`. Credential fields are encrypted at rest and never returned in plaintext by `getAccountAISettings`.
+
+```typescript
+// Read current settings (keys are redacted)
+const settings = await client.getAccountAISettings();
+
+// Save settings
+await client.upsertAccountAISettings({
+  provider: 'anthropic',
+  model: 'claude-sonnet-4-5', // optional; provider default used when empty
+  anthropic_api_key: 'sk-ant-...'
+});
 ```
 
 ### Managing Features
@@ -163,6 +205,10 @@ await client.removeFeatureFromAccount('account-id', {
 ```typescript
 // List all available features
 const features = await client.listFeatures();
+
+// Add or remove every feature for an account (self-hosting)
+await client.addAllFeaturesToAccount('account-id');
+await client.removeAllFeaturesFromAccount('account-id');
 ```
 
 ### Managing Credentials
@@ -198,6 +244,10 @@ await client.deleteCredential('credential-id', {
 await client.archiveCredential('credential-id', {
   archivedBy: 'user-id'
 });
+
+// Re-encrypt all active credentials with a new server secret key (self-hosting).
+// Update the server's secret key first, then call this.
+const rotated = await client.rotateCredentialSecret();
 ```
 
 ### Managing Executions
@@ -212,6 +262,30 @@ const executions = await client.listExecutions({
   limit: 10,                            // Required: Maximum number of items
   offset: 0                             // Required: Number of items to skip
 });
+
+// Execution counts grouped into per-minute buckets for a time window
+const analytics = await client.getDateRangeAnalytics({
+  startDate: '2024-01-01', // YYYY-MM-DD
+  startTime: '00:00:00'    // HH:MM:SS or HH:MM
+});
+
+// Lifetime totals (scheduled / success / failed) for the account
+const totals = await client.getExecutionTotals(123);
+
+// Delete execution logs older than a retention window (self-hosting; peer auth)
+const cleanup = await client.cleanupOldExecutionLogs('123', 6); // retentionMonths
+```
+
+### Backup and Restore
+
+Database backup/restore for self-hosted clusters (Basic Authentication).
+
+```typescript
+// Start an online backup
+const backup = await client.backupDatabase();
+
+// Restore from a backup file (S3 object key when S3 is configured, else local path)
+const restore = await client.restoreDatabase('backup-2024-01-01.db');
 ```
 
 ### Managing Executors
@@ -260,6 +334,36 @@ const updatedExecutor = await client.updateExecutor('executor-id', {
 await client.deleteExecutor('executor-id', {
   deletedBy: 'user-id'
 });
+```
+
+### Managing Local Executors
+
+Local executors run jobs as shell commands on a machine you control. Register one, then the `scheduler0-cli` process pulls assigned jobs and reports results back.
+
+```typescript
+// Register a local executor (the server sets the type to "local")
+const reg = await client.registerLocalExecutor({
+  name: 'My Local Executor',
+  command: '/usr/local/bin/process-job.sh',
+  workingDir: '/home/deploy/app',
+  createdBy: 'user-1'
+});
+const executorId = reg.data.id;
+
+// Pull the active jobs assigned to a local executor (also renews its lease)
+const { data: jobs } = await client.pullLocalExecutorJobs(executorId);
+
+// Report a batch of execution results (state: 0=scheduled, 1=success, 2=failed)
+const result = await client.reportLocalExecutions(executorId, [
+  {
+    jobId: 1,
+    uniqueId: 'exec-1',
+    state: 1,
+    lastExecutionTime: '2025-01-01T00:00:00Z',
+    nextExecutionTime: '2025-01-02T00:00:00Z'
+  }
+]);
+console.log(`${result.data.committed} executions committed`);
 ```
 
 ### Managing Projects

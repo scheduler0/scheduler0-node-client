@@ -18,6 +18,9 @@ import {
   DateRangeAnalyticsAPIResponse,
   ExecutionTotalsAPIResponse,
   CleanupOldLogsResponse,
+  LocalExecutorRegisterResponse,
+  LocalExecutorJobsResponse,
+  ReportLocalExecutionsResponse,
 } from '../types';
 
 // Mock fetch globally
@@ -1700,6 +1703,124 @@ describe('Client', () => {
           headers: expect.objectContaining({
             'X-Account-ID': '456',
           }),
+        })
+      );
+    });
+  });
+
+  describe('Local Executor Methods', () => {
+    it('should register a local executor', async () => {
+      const mockResponse: LocalExecutorRegisterResponse = {
+        success: true,
+        data: { id: 42 },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(baseURL, 'v1', apiKey, apiSecret, accountId);
+      const result = await client.registerLocalExecutor({
+        name: 'My Local Executor',
+        command: '/usr/local/bin/process-job.sh',
+        workingDir: '/home/deploy/app',
+        createdBy: 'user-1',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/local-executors'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('should pull jobs for a local executor', async () => {
+      const mockResponse: LocalExecutorJobsResponse = {
+        success: true,
+        data: [
+          {
+            id: 1,
+            accountId: 123,
+            projectId: 456,
+            executorId: 42,
+            spec: '* * * * *',
+            timezone: 'UTC',
+            dateCreated: '2025-01-01T00:00:00Z',
+          },
+        ],
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(baseURL, 'v1', apiKey, apiSecret, accountId);
+      const result = await client.pullLocalExecutorJobs(42);
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/local-executors/42/jobs'),
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should report local executions', async () => {
+      const mockResponse: ReportLocalExecutionsResponse = {
+        success: true,
+        data: { committed: 2 },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(baseURL, 'v1', apiKey, apiSecret, accountId);
+      const result = await client.reportLocalExecutions(42, [
+        {
+          jobId: 1,
+          uniqueId: 'exec-1',
+          state: 1,
+          lastExecutionTime: '2025-01-01T00:00:00Z',
+          nextExecutionTime: '2025-01-02T00:00:00Z',
+          executionVersion: 5,
+          jobQueueVersion: 2,
+        },
+        {
+          jobId: 2,
+          uniqueId: 'exec-2',
+          state: 2,
+        },
+      ]);
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/local-executors/42/executions'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify([
+            {
+              jobId: 1,
+              uniqueId: 'exec-1',
+              state: 1,
+              lastExecutionTime: '2025-01-01T00:00:00Z',
+              nextExecutionTime: '2025-01-02T00:00:00Z',
+              executionVersion: 5,
+              jobQueueVersion: 2,
+            },
+            { jobId: 2, uniqueId: 'exec-2', state: 2 },
+          ]),
         })
       );
     });

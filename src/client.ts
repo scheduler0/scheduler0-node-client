@@ -51,6 +51,11 @@ import {
   PromptProviderResult,
   BackupRestoreResponse,
   RestoreRequest,
+  LocalExecutorRegisterRequest,
+  LocalExecutorRegisterResponse,
+  LocalExecutorJobsResponse,
+  LocalExecutionReport,
+  ReportLocalExecutionsResponse,
 } from './types';
 
 export interface ClientOptions {
@@ -644,6 +649,44 @@ export class Client {
   async restoreDatabase(fileName: string): Promise<BackupRestoreResponse> {
     const body: RestoreRequest = { filePath: fileName };
     return this.request<BackupRestoreResponse>('POST', '/cluster/restore', body);
+  }
+
+  // Local Executor Methods
+
+  /**
+   * Register a new local executor. The server sets the executor type to "local".
+   * POST /local-executors
+   */
+  async registerLocalExecutor(
+    body: LocalExecutorRegisterRequest,
+    accountIdOverride?: string
+  ): Promise<LocalExecutorRegisterResponse> {
+    return this.request<LocalExecutorRegisterResponse>('POST', '/local-executors', body, undefined, accountIdOverride);
+  }
+
+  /**
+   * Pull the active jobs assigned to a local executor. Each call also renews the
+   * executor's lease (heartbeat) and records a pull-log entry server-side.
+   * GET /local-executors/{id}/jobs
+   */
+  async pullLocalExecutorJobs(
+    executorId: string | number,
+    accountIdOverride?: string
+  ): Promise<LocalExecutorJobsResponse> {
+    return this.request<LocalExecutorJobsResponse>('GET', `/local-executors/${executorId}/jobs`, undefined, undefined, accountIdOverride);
+  }
+
+  /**
+   * Report a batch of local execution results. The events are committed via Raft
+   * and counted toward the account's execution quota.
+   * POST /local-executors/{id}/executions
+   */
+  async reportLocalExecutions(
+    executorId: string | number,
+    reports: LocalExecutionReport[],
+    accountIdOverride?: string
+  ): Promise<ReportLocalExecutionsResponse> {
+    return this.request<ReportLocalExecutionsResponse>('POST', `/local-executors/${executorId}/executions`, reports, undefined, accountIdOverride);
   }
 }
 

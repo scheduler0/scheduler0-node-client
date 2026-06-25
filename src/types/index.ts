@@ -584,3 +584,41 @@ export interface CleanupOldLogsResponse {
   };
 }
 
+// Local Executor Types
+
+export interface LocalExecutorRegisterRequest {
+  name: string;
+  command: string;
+  workingDir?: string;
+  createdBy?: string;
+}
+
+export interface LocalExecutorRegisterResponse {
+  success: boolean;
+  data: {
+    id: number;
+  };
+}
+
+export interface LocalExecutorJobsResponse {
+  success: boolean;
+  data: Job[];
+}
+
+export interface LocalExecutionReport {
+  jobId: number;
+  uniqueId: string;
+  state: number; // 0 = scheduled, 1 = success, 2 = failed
+  lastExecutionTime?: string; // RFC3339
+  nextExecutionTime?: string; // RFC3339
+  executionVersion?: number;
+  jobQueueVersion?: number;
+}
+
+export interface ReportLocalExecutionsResponse {
+  success: boolean;
+  data: {
+    committed: number;
+  };
+}
+
