@@ -17,6 +17,7 @@ import {
   CredentialResponse,
   PaginatedCredentialsResponse,
   ListCredentialsParams,
+  RotateSecretRequest,
   RotateSecretResponse,
   ExecutionResponse,
   PaginatedExecutionsResponse,
@@ -323,14 +324,22 @@ export class Client {
   }
 
   /**
-   * Re-encrypt all active, non-expired credentials with the new SecretKey.
+   * Re-encrypt all secrets stored under the server's SecretKey — credential api
+   * secrets, executor cloud provider credentials, and per-account AI provider keys —
+   * from `oldSecretKey` to the server's currently-loaded (new) SecretKey.
+   *
+   * A credential's `api_secret` is stored encrypted and verified by
+   * decrypt-then-compare, so it is re-encrypted too; the `api_key` is a stable
+   * identifier that is left unchanged, so rotation does not invalidate any credential.
    *
    * **Self-Hosting Only.** The operator must update `SecretKey` in the secrets
-   * source before calling this method. Requires a basic-auth client instance
-   * (created with `username` + `password` options). The operation is resumable.
+   * source and reload/restart the server before calling this method, then pass the
+   * previous key as `oldSecretKey`. Requires a basic-auth client instance (created
+   * with `username` + `password` options). The operation is idempotent and resumable.
    */
-  async rotateCredentialSecret(): Promise<RotateSecretResponse> {
-    return this.request<RotateSecretResponse>('POST', '/credentials/rotate-secret', undefined);
+  async rotateSecret(oldSecretKey: string): Promise<RotateSecretResponse> {
+    const body: RotateSecretRequest = { oldSecretKey };
+    return this.request<RotateSecretResponse>('POST', '/account/rotate-secret', body);
   }
 
   // Execution Methods

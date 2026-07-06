@@ -161,11 +161,23 @@ export interface ListCredentialsParams {
   orderByDirection?: 'asc' | 'desc';
 }
 
+export interface RotateSecretRequest {
+  /**
+   * The previous SecretKey (hex-encoded AES key) used to decrypt existing secrets
+   * before they are re-encrypted with the server's currently-loaded SecretKey.
+   */
+  oldSecretKey: string;
+}
+
 export interface RotateSecretResponse {
   success: boolean;
   data: {
-    /** Number of credentials whose api_secret was re-encrypted with the new SecretKey. */
-    rotated: number;
+    /** Number of credential rows whose api_secret was re-encrypted. */
+    credentialsRotated: number;
+    /** Number of executor rows whose cloud provider credentials were re-encrypted. */
+    executorsRotated: number;
+    /** Number of account AI-settings rows whose provider keys were re-encrypted. */
+    aiSettingsRotated: number;
   };
 }
 
