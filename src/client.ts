@@ -49,7 +49,9 @@ import {
   AsyncTaskResponse,
   HealthcheckResponse,
   PromptJobRequest,
-  PromptProviderResult,
+  PromptResult,
+  IntentClassification,
+  ClassifyPromptRequest,
   BackupRestoreResponse,
   RestoreRequest,
   LocalExecutorRegisterRequest,
@@ -563,7 +565,7 @@ export class Client {
   }
 
   // AI Prompt Methods
-  async createJobFromPrompt(body: PromptJobRequest, accountIdOverride?: string): Promise<PromptProviderResult[]> {
+  async createJobFromPrompt(body: PromptJobRequest, accountIdOverride?: string): Promise<PromptResult> {
     const versionPrefix = `/api/${this.version}`;
     const url = `${this.baseURL}${versionPrefix}/prompt`;
 
@@ -611,15 +613,65 @@ export class Client {
 
     const responseText = await response.text();
     if (!responseText) {
-      return [];
+      return { providers: [] };
     }
 
     try {
-      const envelope = JSON.parse(responseText) as { success: boolean; data: PromptProviderResult[] };
-      return Array.isArray(envelope.data) ? envelope.data : [];
+      const envelope = JSON.parse(responseText) as { success: boolean; data: PromptResult };
+      return envelope.data ?? { providers: [] };
     } catch (e) {
       throw new Error(`Failed to parse response: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+  async classifyPrompt(body: ClassifyPromptRequest, accountIdOverride?: string): Promise<IntentClassification> {
+    const versionPrefix = `/api/${this.version}`;
+    const url = `${this.baseURL}${versionPrefix}/prompt/classify`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.username && this.password) {
+      const auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+      headers['X-Peer'] = 'cmd';
+    } else if (this.apiKey && this.apiSecret) {
+      headers['X-API-Key'] = this.apiKey;
+      headers['X-Secret-Key'] = this.apiSecret;
+    }
+
+    const accountID = accountIdOverride || this.accountId;
+    if (accountID) {
+      headers['X-Account-ID'] = accountID;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (response.status >= 400) {
+      const responseText = await response.text();
+      let errorData: any;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        errorData = responseText;
+      }
+      if (errorData && typeof errorData === 'object' && 'success' in errorData && 'data' in errorData) {
+        const errorMessage = typeof errorData.data === 'string'
+          ? errorData.data
+          : JSON.stringify(errorData.data);
+        throw new Error(`API error: ${response.status} - ${errorMessage}`);
+      }
+      throw new Error(`API error: ${response.status} - ${responseText}`);
+    }
+
+    const responseText = await response.text();
+    const envelope = JSON.parse(responseText) as { success: boolean; data: { classification: IntentClassification } };
+    return envelope.data.classification;
   }
 
   // Account AI Settings Methods

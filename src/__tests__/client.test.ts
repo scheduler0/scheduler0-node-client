@@ -15,6 +15,8 @@ import {
   HealthcheckResponse,
   FeaturesResponse,
   PromptJobResponse,
+  PromptResult,
+  IntentClassification,
   DateRangeAnalyticsAPIResponse,
   ExecutionTotalsAPIResponse,
   CleanupOldLogsResponse,
@@ -1446,18 +1448,35 @@ describe('Client', () => {
 
   describe('AI Prompt Methods', () => {
     it('should create job from prompt', async () => {
-      const mockResponse: PromptJobResponse[] = [
-        {
-          kind: 'REMINDER',
-          purpose: 'reminder',
-          subject: 'Weekly Report',
-          cronExpression: '0 9 * * 1',
-          timezone: 'America/New_York',
-          recipients: ['team@example.com'],
+      const mockResult: PromptResult = {
+        providers: [
+          {
+            provider: 'openai',
+            model: 'gpt-4.1-mini',
+            jobs: [
+              {
+                kind: 'REMINDER',
+                purpose: 'reminder',
+                subject: 'Weekly Report',
+                cronExpression: '0 9 * * 1',
+                timezone: 'America/New_York',
+                recipients: ['team@example.com'],
+              },
+            ],
+            inputTokens: 200,
+            outputTokens: 80,
+            totalTokens: 280,
+            durationMs: 450,
+          },
+        ],
+        classification: {
+          text: 'Send weekly reports every Monday at 9 AM',
+          decision: 'allow',
+          reason: 'request_with_temporal_signal',
         },
-      ];
+      };
 
-      const envelope = { success: true, data: mockResponse };
+      const envelope = { success: true, data: mockResult };
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -1478,12 +1497,47 @@ describe('Client', () => {
         timezone: 'America/New_York',
       });
 
-      expect(result).toEqual(mockResponse);
+      expect(result).toEqual(mockResult);
+      expect(result.providers).toHaveLength(1);
+      expect(result.classification?.decision).toBe('allow');
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/v1/prompt'),
         expect.objectContaining({
           method: 'POST',
         })
+      );
+    });
+
+    it('should classify a prompt', async () => {
+      const mockClassification: IntentClassification = {
+        text: 'What is Kubernetes?',
+        decision: 'reject',
+        reason: 'informational_question_not_schedule_request',
+      };
+
+      const envelope = { success: true, data: { classification: mockClassification } };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => envelope,
+        text: async () => JSON.stringify(envelope),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.classifyPrompt({ prompt: 'What is Kubernetes?' });
+
+      expect(result).toEqual(mockClassification);
+      expect(result.decision).toBe('reject');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/prompt/classify'),
+        expect.objectContaining({ method: 'POST' })
       );
     });
   });
