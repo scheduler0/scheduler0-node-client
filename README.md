@@ -687,15 +687,3 @@ npm run test:coverage
 npm run build
 ```
 
-### CI/CD
-
-This project uses GitHub Actions for continuous integration. Tests are automatically run on:
-- Push to `main`, `master`, or `develop` branches
-- Pull requests to `main`, `master`, or `develop` branches
-
-The CI pipeline tests against Node.js 18, 20, and 22.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
