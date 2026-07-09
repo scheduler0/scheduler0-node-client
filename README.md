@@ -182,7 +182,7 @@ const tokens = await client.getAccountTokens('account-id');
 const added = await client.addAccountTokens('account-id', 1000);
 ```
 
-> **Note:** Account, token, and execution-count endpoints are self-hosting only and require Basic Authentication.
+> **Note:** Account, token, and execution-count endpoints are account/cluster-level operations. They require a credential carrying the **`admin`** scope, or Basic Authentication (operator bootstrap).
 
 ### AI Provider Settings (Bring Your Own Key)
 
@@ -222,9 +222,14 @@ const credentials = await client.listCredentials({
   orderByDirection: 'desc'
 });
 
-// Create a new credential
+// Create a new credential. `scopes` is required (a non-empty subset of
+// read/write/execute/admin). Optionally pass `expiresInSeconds` for a shorter TTL
+// (the server clamps it). Granting 'admin' requires an operator or an existing
+// admin credential.
 const credential = await client.createCredential({
-  createdBy: 'user-id'
+  createdBy: 'user-id',
+  scopes: ['read', 'write', 'execute'],
+  expiresInSeconds: 8 * 60 * 60, // optional (8 hours)
 });
 
 // Get a specific credential
@@ -280,7 +285,7 @@ const cleanup = await client.cleanupOldExecutionLogs('123', 6); // retentionMont
 
 ### Backup and Restore
 
-Database backup/restore for self-hosted clusters (Basic Authentication).
+Database backup/restore for self-hosted clusters (requires an `admin`-scoped credential, or Basic Authentication).
 
 ```typescript
 // Start an online backup
