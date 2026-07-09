@@ -487,37 +487,58 @@ const promptRequest = {
   timezone: 'America/New_York' // Optional IANA timezone; defaults to "UTC" when omitted.
 };
 
-// Generate job configurations from the prompt
-// Note: This endpoint requires credits and validates credentials
-const jobConfigs = await client.createJobFromPrompt(promptRequest);
+// Generate job configurations from the prompt.
+// Returns a PromptResult: { providers: PromptProviderResult[], classification?: IntentClassification }
+const promptResult = await client.createJobFromPrompt(promptRequest);
 
-// jobConfigs is an array of PromptJobResponse with generated configurations
-for (const config of jobConfigs) {
-  console.log(`Kind: ${config.kind}`);
-  console.log(`Cron Expression: ${config.cronExpression}`);
-  if (config.nextRunAt) {
-    console.log(`Next Run At: ${config.nextRunAt}`);
-  }
-  console.log(`Recipients: ${config.recipients}`);
-  
-  // Use the generated configuration to create actual jobs
-  const job = await client.createJob({
-    projectId: 123,
-    timezone: config.timezone || 'UTC',
-    spec: config.cronExpression || '',
-    createdBy: 'ai-prompt',
-    ...(config.startDate && { startDate: config.startDate }),
-    ...(config.endDate && { endDate: config.endDate }),
-    ...(config.subject && {
-      data: JSON.stringify({
-        subject: config.subject,
-        recipients: config.recipients
-      })
-    })
-  });
-  
-  console.log(`Job created with request ID: ${job.data}`);
+// Inspect the intent classification
+if (promptResult.classification) {
+  console.log('Decision:', promptResult.classification.decision); // 'allow' | 'clarify' | 'reject'
+  console.log('Reason:', promptResult.classification.reason);
 }
+
+// Process each provider's job configurations
+for (const provider of promptResult.providers) {
+  console.log(`Provider: ${provider.provider} / ${provider.model}`);
+  console.log(`Tokens used: ${provider.totalTokens}`);
+  for (const config of provider.jobs) {
+    console.log(`Kind: ${config.kind}`);
+    console.log(`Cron Expression: ${config.cronExpression}`);
+    if (config.nextRunAt) {
+      console.log(`Next Run At: ${config.nextRunAt}`);
+    }
+    
+    // Use the generated configuration to create actual jobs
+    const job = await client.createJob({
+      projectId: 123,
+      timezone: config.timezone || 'UTC',
+      spec: config.cronExpression || '',
+      createdBy: 'ai-prompt',
+      ...(config.startDate && { startDate: config.startDate }),
+      ...(config.endDate && { endDate: config.endDate }),
+      ...(config.subject && {
+        data: JSON.stringify({
+          subject: config.subject,
+          recipients: config.recipients
+        })
+      })
+    });
+    
+    console.log(`Job created with request ID: ${job.data}`);
+  }
+}
+```
+
+### Classifying a Prompt (without AI execution)
+
+Run only the intent classifier against a prompt — no model is invoked and no credits are consumed:
+
+```typescript
+const classification = await client.classifyPrompt({ prompt: 'What is Kubernetes?' });
+
+console.log('Decision:', classification.decision); // 'reject'
+console.log('Reason:', classification.reason);     // 'informational_question_not_schedule_request'
+```
 ```
 
 **Note**: The AI prompt endpoint requires:

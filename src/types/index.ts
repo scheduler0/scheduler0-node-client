@@ -94,7 +94,10 @@ export interface FeaturesResponse {
 }
 
 // Credential Types
-export type CredentialScope = 'read' | 'write' | 'execute';
+//
+// The `admin` scope authorizes account- and cluster-level operations and can only
+// be granted by an operator or an existing admin credential.
+export type CredentialScope = 'read' | 'write' | 'execute' | 'admin';
 
 export interface Credential {
   id: number;
@@ -121,8 +124,11 @@ export interface Credential {
 export interface CredentialCreateRequestBody {
   archived?: boolean;
   createdBy: string;
-  // Required by the API. Must be a non-empty subset of {read, write, execute}.
+  // Required by the API. Must be a non-empty subset of {read, write, execute, admin}.
   scopes: CredentialScope[];
+  // Optional shorter lifetime in seconds. The server clamps it to its allowed
+  // range; omit to use the default expiry.
+  expiresInSeconds?: number;
 }
 
 export interface CredentialArchiveRequestBody {
@@ -540,6 +546,21 @@ export interface PromptProviderResult {
   outputTokens: number;
   totalTokens: number;
   durationMs: number;
+}
+
+export interface IntentClassification {
+  text: string;
+  decision: 'allow' | 'clarify' | 'reject';
+  reason: string;
+}
+
+export interface PromptResult {
+  providers: PromptProviderResult[];
+  classification?: IntentClassification;
+}
+
+export interface ClassifyPromptRequest {
+  prompt: string;
 }
 
 // Execution Analytics Types
