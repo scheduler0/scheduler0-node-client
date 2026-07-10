@@ -544,6 +544,9 @@ export interface PromptJobRequest {
   recipients?: string[]; // Max 5 items, each max 36 characters
   channels?: string[]; // Max 5 items, each max 36 characters
   timezone?: string;
+  // Optional BCP-47 locale (e.g. "en-US", "es-ES") forwarded to the AI model;
+  // omitted falls back to "en".
+  locale?: string;
 }
 
 export interface PromptJobResponse {
@@ -586,6 +589,9 @@ export interface PromptResult {
 
 export interface ClassifyPromptRequest {
   prompt: string;
+  // Optional BCP-47 locale. Only English (en*) is currently supported; other
+  // locales are rejected by the server with a 400.
+  locale?: string;
 }
 
 // Execution Analytics Types
