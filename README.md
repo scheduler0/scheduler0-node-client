@@ -186,16 +186,25 @@ const added = await client.addAccountTokens('account-id', 1000);
 
 ### AI Provider Settings (Bring Your Own Key)
 
-Configure a per-account model provider and key so `createJobFromPrompt` uses your own credentials. Supported providers: `openai`, `anthropic`, `bedrock`. Credential fields are encrypted at rest and never returned in plaintext by `getAccountAISettings`.
+Configure an ordered list of active models (primary + fallbacks) per account. When `createJobFromPrompt` is called, the primary model is tried first; if it fails the next fallback is tried. Supported providers: `openai`, `anthropic`, `bedrock`, `openrouter`. Credential fields are encrypted at rest and never returned in plaintext.
+
+Use `getAIModels()` to fetch the per-provider approved model catalog from the server before configuring settings.
 
 ```typescript
+// Fetch the approved model catalog
+const catalog = await client.getAIModels();
+// catalog.data = { openai: [{id, display_name, default}, ...], anthropic: [...], ... }
+
 // Read current settings (keys are redacted)
 const settings = await client.getAccountAISettings();
 
-// Save settings
+// Save settings with primary + fallback
 await client.upsertAccountAISettings({
-  provider: 'anthropic',
-  model: 'claude-sonnet-4-5', // optional; provider default used when empty
+  active_models: [
+    { provider: 'openai', model: 'gpt-4.1-mini' },     // primary
+    { provider: 'anthropic', model: 'claude-sonnet-4-5' } // fallback
+  ],
+  openai_api_key: 'sk-...',
   anthropic_api_key: 'sk-ant-...'
 });
 ```
