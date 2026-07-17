@@ -588,6 +588,58 @@ export interface ClassifyPromptRequest {
   prompt: string;
 }
 
+// Conversation Suggestions Types
+export interface SuggestionParticipant {
+  id?: string;
+  display_name?: string;
+  timezone?: string;
+}
+
+export interface SuggestionMessage {
+  id?: string;
+  // Either a participant object or a bare display-name string (minimal shape).
+  speaker: SuggestionParticipant | string;
+  timestamp: string;
+  message: string;
+}
+
+/**
+ * Analysis options. `locale` is English only for the first release: it defaults
+ * to `en` and only accepts `en*` values; any other locale is rejected by the API
+ * with UNSUPPORTED_LOCALE.
+ */
+export interface SuggestionOptions {
+  reference_time?: string;
+  locale?: string;
+  default_timezone?: string;
+  minimum_confidence?: number;
+  include_low_confidence?: boolean;
+  include_resolved_obligations?: boolean;
+  default_due_time?: string;
+  default_deadline_time?: string;
+}
+
+export interface AnalyzeSuggestionsRequest {
+  conversation_id?: string;
+  messages: SuggestionMessage[];
+  participants?: SuggestionParticipant[];
+  options?: SuggestionOptions;
+}
+
+/**
+ * The analyzer's response. Individual suggestions/obligations carry a rich,
+ * evolving shape owned by the edge analyzer, so they are typed loosely.
+ */
+export interface AnalyzeSuggestionsResult {
+  request_id?: string;
+  conversation_id?: string;
+  analyzed_at?: string;
+  suggestions: Record<string, any>[];
+  obligations: Record<string, any>[];
+  warnings: Record<string, any>[];
+  engine?: Record<string, any>;
+}
+
 // Execution Analytics Types
 export interface DateRangeAnalyticsPoint {
   date: string;

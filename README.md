@@ -550,6 +550,24 @@ console.log('Reason:', classification.reason);     // 'informational_question_no
 ```
 ```
 
+### Analyzing a Conversation for Suggestions
+
+Analyze an ordered set of conversation messages to detect commitments, requests, deadlines, and follow-ups. The analysis is deterministic and **English only** (a non-`en*` locale returns `UNSUPPORTED_LOCALE`):
+
+```typescript
+const result = await client.analyzeSuggestions({
+  conversation_id: 'conv_123',
+  messages: [
+    { speaker: 'Victor', timestamp: '2026-07-17T10:00:00-04:00', message: "I'll send the proposal tomorrow." },
+  ],
+  options: { locale: 'en', default_timezone: 'America/Toronto' },
+});
+
+for (const suggestion of result.suggestions) {
+  console.log(suggestion.type, suggestion.reason);
+}
+```
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
