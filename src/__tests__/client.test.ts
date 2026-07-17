@@ -1586,6 +1586,50 @@ describe('Client', () => {
         expect.objectContaining({ method: 'POST' })
       );
     });
+
+    it('should recommend send times', async () => {
+      const envelope = {
+        success: true,
+        data: {
+          request_id: 'req_1',
+          reference_time: '2026-07-17T17:45:00-04:00',
+          policy: { id: 'default_send_time', version: '1.0.0' },
+          engine: { version: '1.0.0' },
+          suggestions: [{ id: 'sts_001', send_at: '2026-07-20T12:00:00-04:00', label: 'Monday morning', score: 0.94, rank: 1 }],
+          search: { candidates_generated: 143, candidates_scored: 16 },
+          warnings: [],
+        },
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => envelope,
+        text: async () => JSON.stringify(envelope),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.sendTimeSuggestions({
+        sender: { id: 'user_123', timezone: 'America/Toronto' },
+        recipients: [{ id: 'user_456', timezone: 'America/Los_Angeles', role: 'primary' }],
+        message: { priority: 'normal' },
+      });
+
+      expect(result.request_id).toBe('req_1');
+      expect(result.reference_time).toBe('2026-07-17T17:45:00-04:00');
+      expect(result.suggestions).toHaveLength(1);
+      expect(result.suggestions[0].id).toBe('sts_001');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/send-time-suggestions'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
   });
 
   describe('Error Handling', () => {

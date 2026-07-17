@@ -55,6 +55,8 @@ import {
   ClassifyPromptRequest,
   AnalyzeSuggestionsRequest,
   AnalyzeSuggestionsResult,
+  SendTimeSuggestionsRequest,
+  SendTimeSuggestionsResult,
   BackupRestoreResponse,
   RestoreRequest,
   LocalExecutorRegisterRequest,
@@ -732,6 +734,62 @@ export class Client {
 
     const responseText = await response.text();
     const envelope = JSON.parse(responseText) as { success: boolean; data: AnalyzeSuggestionsResult };
+    return envelope.data;
+  }
+
+  /**
+   * Recommend suitable future send times for a message given sender/recipient
+   * time zones, working hours, quiet hours, weekends, priority, and coverage
+   * rules. The engine is deterministic and does not send the message or create
+   * a job.
+   */
+  async sendTimeSuggestions(body: SendTimeSuggestionsRequest, accountIdOverride?: string): Promise<SendTimeSuggestionsResult> {
+    const versionPrefix = `/api/${this.version}`;
+    const url = `${this.baseURL}${versionPrefix}/send-time-suggestions`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.username && this.password) {
+      const auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+      headers['X-Peer'] = 'cmd';
+    } else if (this.apiKey && this.apiSecret) {
+      headers['X-API-Key'] = this.apiKey;
+      headers['X-Secret-Key'] = this.apiSecret;
+    }
+
+    const accountID = accountIdOverride || this.accountId;
+    if (accountID) {
+      headers['X-Account-ID'] = accountID;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (response.status >= 400) {
+      const responseText = await response.text();
+      let errorData: any;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        errorData = responseText;
+      }
+      if (errorData && typeof errorData === 'object' && 'success' in errorData && 'data' in errorData) {
+        const errorMessage = typeof errorData.data === 'string'
+          ? errorData.data
+          : JSON.stringify(errorData.data);
+        throw new Error(`API error: ${response.status} - ${errorMessage}`);
+      }
+      throw new Error(`API error: ${response.status} - ${responseText}`);
+    }
+
+    const responseText = await response.text();
+    const envelope = JSON.parse(responseText) as { success: boolean; data: SendTimeSuggestionsResult };
     return envelope.data;
   }
 

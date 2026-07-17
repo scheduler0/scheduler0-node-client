@@ -568,6 +568,24 @@ for (const suggestion of result.suggestions) {
 }
 ```
 
+### Recommending Send Times
+
+Recommend suitable future send times for a message given sender/recipient time zones, working hours, quiet hours, weekends, priority, and coverage rules. The engine is deterministic and does not send the message or create a job:
+
+```typescript
+const result = await client.sendTimeSuggestions({
+  sender: { id: 'user_123', timezone: 'America/Toronto' },
+  recipients: [
+    { id: 'user_456', timezone: 'America/Los_Angeles', role: 'primary' },
+  ],
+  message: { priority: 'normal' },
+});
+
+for (const suggestion of result.suggestions) {
+  console.log(suggestion.send_at, suggestion.score, suggestion.label);
+}
+```
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
