@@ -1501,7 +1501,7 @@ describe('Client', () => {
       expect(result.providers).toHaveLength(1);
       expect(result.classification?.decision).toBe('allow');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/prompt'),
+        expect.stringContaining('/api/v1/ai/prompt'),
         expect.objectContaining({
           method: 'POST',
         })
@@ -1536,7 +1536,7 @@ describe('Client', () => {
       expect(result).toEqual(mockClassification);
       expect(result.decision).toBe('reject');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/prompt/classify'),
+        expect.stringContaining('/api/v1/ai/prompt/classify'),
         expect.objectContaining({ method: 'POST' })
       );
     });
@@ -1582,7 +1582,7 @@ describe('Client', () => {
       expect(result.suggestions).toHaveLength(1);
       expect(result.suggestions[0].type).toBe('COMMITMENT');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/suggestions/analyze'),
+        expect.stringContaining('/api/v1/ai/suggestions/analyze'),
         expect.objectContaining({ method: 'POST' })
       );
     });
@@ -1626,7 +1626,7 @@ describe('Client', () => {
       expect(result.suggestions).toHaveLength(1);
       expect(result.suggestions[0].id).toBe('sts_001');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/send-time-suggestions'),
+        expect.stringContaining('/api/v1/ai/send-time-suggestions'),
         expect.objectContaining({ method: 'POST' })
       );
     });

@@ -572,7 +572,7 @@ export class Client {
   // AI Prompt Methods
   async createJobFromPrompt(body: PromptJobRequest, accountIdOverride?: string): Promise<PromptResult> {
     const versionPrefix = `/api/${this.version}`;
-    const url = `${this.baseURL}${versionPrefix}/prompt`;
+    const url = `${this.baseURL}${versionPrefix}/ai/prompt`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -631,7 +631,7 @@ export class Client {
 
   async classifyPrompt(body: ClassifyPromptRequest, accountIdOverride?: string): Promise<IntentClassification> {
     const versionPrefix = `/api/${this.version}`;
-    const url = `${this.baseURL}${versionPrefix}/prompt/classify`;
+    const url = `${this.baseURL}${versionPrefix}/ai/prompt/classify`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -689,7 +689,7 @@ export class Client {
    */
   async analyzeSuggestions(body: AnalyzeSuggestionsRequest, accountIdOverride?: string): Promise<AnalyzeSuggestionsResult> {
     const versionPrefix = `/api/${this.version}`;
-    const url = `${this.baseURL}${versionPrefix}/suggestions/analyze`;
+    const url = `${this.baseURL}${versionPrefix}/ai/suggestions/analyze`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -745,7 +745,7 @@ export class Client {
    */
   async sendTimeSuggestions(body: SendTimeSuggestionsRequest, accountIdOverride?: string): Promise<SendTimeSuggestionsResult> {
     const versionPrefix = `/api/${this.version}`;
-    const url = `${this.baseURL}${versionPrefix}/send-time-suggestions`;
+    const url = `${this.baseURL}${versionPrefix}/ai/send-time-suggestions`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -796,11 +796,11 @@ export class Client {
   // Account AI Settings Methods
 
   async getAccountAISettings(accountIdOverride?: string): Promise<AccountAISettingsResponse> {
-    return this.request<AccountAISettingsResponse>('GET', '/account/ai-settings', undefined, undefined, accountIdOverride);
+    return this.request<AccountAISettingsResponse>('GET', '/ai/settings', undefined, undefined, accountIdOverride);
   }
 
   async upsertAccountAISettings(body: AccountAISettings, accountIdOverride?: string): Promise<{ success: boolean; data: { message: string } }> {
-    return this.request<{ success: boolean; data: { message: string } }>('PUT', '/account/ai-settings', body, undefined, accountIdOverride);
+    return this.request<{ success: boolean; data: { message: string } }>('PUT', '/ai/settings', body, undefined, accountIdOverride);
   }
 
   async getAIModels(): Promise<AIModelsResponse> {

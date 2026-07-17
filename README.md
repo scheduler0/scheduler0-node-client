@@ -661,7 +661,7 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/executors/*`
 - `/api/v1/async-tasks/*`
 - `/api/v1/executions`
-- `/api/v1/prompt` (AI prompt endpoint)
+- `/api/v1/ai/prompt` (AI prompt endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 
@@ -686,7 +686,7 @@ const credential = await client.createCredential(
 
 ## Credits and AI Features
 
-The AI prompt endpoint (`/api/v1/prompt`) requires:
+The AI prompt endpoint (`/api/v1/ai/prompt`) requires:
 - **Credits**: 1 credit per prompt execution
 - **Authentication**: Valid API Key + Secret credentials
 - **Account ID**: Required header for credit deduction
