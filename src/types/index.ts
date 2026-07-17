@@ -240,9 +240,16 @@ export interface Executor {
   region?: string;
   cloudProvider?: string;
   cloudResourceUrl?: string;
+  /**
+   * Secret. The server stores it encrypted and only returns it once, in the
+   * createExecutor response. It is always absent on getExecutor, listExecutors
+   * and updateExecutor responses.
+   */
   cloudApiKey?: string;
+  /** See cloudApiKey: only returned once in the createExecutor response. */
   cloudApiSecret?: string;
   webhookUrl?: string;
+  /** See cloudApiKey: only returned once in the createExecutor response. */
   webhookSecret?: string;
   webhookMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   dateCreated: string;
