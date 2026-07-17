@@ -7,6 +7,7 @@ import {
   AccountTokensAddResponse,
   AccountAISettings,
   AccountAISettingsResponse,
+  AIModelsResponse,
   FeatureRequest,
   FeatureRequestResponse,
   FeaturesResponse,
@@ -630,6 +631,10 @@ export class Client {
 
   async upsertAccountAISettings(body: AccountAISettings, accountIdOverride?: string): Promise<{ success: boolean; data: { message: string } }> {
     return this.request<{ success: boolean; data: { message: string } }>('PUT', '/account/ai-settings', body, undefined, accountIdOverride);
+  }
+
+  async getAIModels(): Promise<AIModelsResponse> {
+    return this.request<AIModelsResponse>('GET', '/ai/models', undefined, undefined, undefined);
   }
 
   // Account Tokens Methods

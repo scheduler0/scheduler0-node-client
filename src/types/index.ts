@@ -487,15 +487,28 @@ export interface HealthcheckResponse {
 }
 
 // Account AI Settings Types
+export interface ActiveModel {
+  provider: string;
+  model: string;
+}
+
+export interface ModelInfo {
+  id: string;
+  display_name: string;
+  default?: boolean;
+}
+
 export interface AccountAISettings {
   account_id?: number;
   provider?: string;
   model?: string;
+  active_models?: ActiveModel[];
   openai_api_key?: string;
   anthropic_api_key?: string;
   bedrock_access_key_id?: string;
   bedrock_secret_key?: string;
   bedrock_region?: string;
+  openrouter_api_key?: string;
   date_created?: string;
   date_modified?: string;
 }
@@ -503,6 +516,11 @@ export interface AccountAISettings {
 export interface AccountAISettingsResponse {
   success: boolean;
   data: AccountAISettings;
+}
+
+export interface AIModelsResponse {
+  success: boolean;
+  data: Record<string, ModelInfo[]>;
 }
 
 // AI Prompt Types
