@@ -57,6 +57,8 @@ import {
   AnalyzeSuggestionsResult,
   SendTimeSuggestionsRequest,
   SendTimeSuggestionsResult,
+  SchedulePromptRequest,
+  ScheduleResult,
   BackupRestoreResponse,
   RestoreRequest,
   LocalExecutorRegisterRequest,
@@ -790,6 +792,65 @@ export class Client {
 
     const responseText = await response.text();
     const envelope = JSON.parse(responseText) as { success: boolean; data: SendTimeSuggestionsResult };
+    return envelope.data;
+  }
+
+  /**
+   * Turn a natural-language prompt into actually-scheduled jobs. The server runs the prompt
+   * pipeline (intent guardrail + generation), resolves or creates a project, picks the
+   * executor whose description/tags best match the prompt (or uses a pinned/only executor),
+   * and creates the jobs synchronously.
+   *
+   * A prompt rejected by the intent guardrail throws an Error (HTTP 422); a prompt with no
+   * schedulable jobs or no matching executor throws an Error (HTTP 409).
+   */
+  async scheduleFromPrompt(body: SchedulePromptRequest, accountIdOverride?: string): Promise<ScheduleResult> {
+    const versionPrefix = `/api/${this.version}`;
+    const url = `${this.baseURL}${versionPrefix}/ai/schedule`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.username && this.password) {
+      const auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+      headers['X-Peer'] = 'cmd';
+    } else if (this.apiKey && this.apiSecret) {
+      headers['X-API-Key'] = this.apiKey;
+      headers['X-Secret-Key'] = this.apiSecret;
+    }
+
+    const accountID = accountIdOverride || this.accountId;
+    if (accountID) {
+      headers['X-Account-ID'] = accountID;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (response.status >= 400) {
+      const responseText = await response.text();
+      let errorData: any;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        errorData = responseText;
+      }
+      if (errorData && typeof errorData === 'object' && 'success' in errorData && 'data' in errorData) {
+        const errorMessage = typeof errorData.data === 'string'
+          ? errorData.data
+          : JSON.stringify(errorData.data);
+        throw new Error(`API error: ${response.status} - ${errorMessage}`);
+      }
+      throw new Error(`API error: ${response.status} - ${responseText}`);
+    }
+
+    const responseText = await response.text();
+    const envelope = JSON.parse(responseText) as { success: boolean; data: ScheduleResult };
     return envelope.data;
   }
 

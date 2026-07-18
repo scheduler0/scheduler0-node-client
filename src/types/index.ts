@@ -236,6 +236,13 @@ export interface Executor {
   id: number;
   accountId: number;
   name: string;
+  /**
+   * Free-text description of what this executor does. Used by the /ai/schedule
+   * endpoint to match an executor to a prompt's purpose and channels.
+   */
+  description?: string;
+  /** Short labels describing the executor's purpose/channels (e.g. "email", "slack"). */
+  tags?: string[];
   type: 'cloud_function' | 'webhook_url';
   region?: string;
   cloudProvider?: string;
@@ -267,6 +274,8 @@ export interface ExecutorResponse {
 
 export interface ExecutorCreateRequestBody {
   name?: string;
+  description?: string;
+  tags?: string[];
   type?: 'cloud_function' | 'webhook_url';
   region?: string;
   cloudProvider?: string;
@@ -281,6 +290,8 @@ export interface ExecutorCreateRequestBody {
 
 export interface ExecutorUpdateRequestBody {
   name?: string;
+  description?: string;
+  tags?: string[];
   type?: 'cloud_function' | 'webhook_url';
   region?: string;
   cloudProvider?: string;
@@ -586,6 +597,44 @@ export interface PromptResult {
 
 export interface ClassifyPromptRequest {
   prompt: string;
+}
+
+// Schedule-from-prompt Types (POST /ai/schedule)
+export interface ScheduleProjectInput {
+  name?: string;
+  description?: string;
+}
+
+export interface SchedulePromptRequest {
+  prompt: string;
+  purposes?: string[];
+  events?: string[];
+  recipients?: string[];
+  channels?: string[];
+  timezone?: string;
+  locale?: string;
+  /** Reuse an existing project. Takes precedence over `project`. */
+  projectId?: number;
+  /** Create-or-reuse a project by name when `projectId` is absent. */
+  project?: ScheduleProjectInput;
+  /** Pin a specific executor and skip LLM matching. */
+  executorId?: number;
+  /** Required; stamped on the created project and jobs. */
+  createdBy: string;
+}
+
+export interface ScheduleResult {
+  classification?: IntentClassification;
+  project: Project;
+  projectCreated: boolean;
+  executor: Executor;
+  /** One of "pinned" | "only" | "llm". */
+  executorMatchedBy: string;
+  /** The model's rationale when matched by "llm". */
+  executorMatchReason?: string;
+  jobs: Job[];
+  provider?: string;
+  model?: string;
 }
 
 // Conversation Suggestions Types
