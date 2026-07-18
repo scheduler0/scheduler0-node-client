@@ -30,6 +30,10 @@ export interface AccountCreateRequestBody {
   name: string;
 }
 
+export interface AccountUpdateRequestBody {
+  name: string;
+}
+
 export interface AccountResponse {
   success: boolean;
   data: Account;
@@ -68,6 +72,50 @@ export interface AccountExecutionCountIncreaseResponse {
   success: boolean;
   data: {
     newExecutionCount: number;
+  };
+}
+
+// Remaining monthly AI classify-request quota for an account.
+export interface AccountClassifyRequestsCount {
+  id: number;
+  accountId: number;
+  requestCount: number;
+  dateCreated: string;
+  dateModified: string;
+  nextResetDate: string;
+}
+
+export interface AccountClassifyCountResponse {
+  success: boolean;
+  data: AccountClassifyRequestsCount;
+}
+
+export interface AccountClassifyCountIncreaseResponse {
+  success: boolean;
+  data: {
+    newClassifyCount: number;
+  };
+}
+
+// Remaining monthly AI prompt-request quota for an account.
+export interface AccountPromptRequestsCount {
+  id: number;
+  accountId: number;
+  requestCount: number;
+  dateCreated: string;
+  dateModified: string;
+  nextResetDate: string;
+}
+
+export interface AccountPromptCountResponse {
+  success: boolean;
+  data: AccountPromptRequestsCount;
+}
+
+export interface AccountPromptCountIncreaseResponse {
+  success: boolean;
+  data: {
+    newPromptCount: number;
   };
 }
 
@@ -545,6 +593,47 @@ export interface AccountAISettingsResponse {
 export interface AIModelsResponse {
   success: boolean;
   data: Record<string, ModelInfo[]>;
+}
+
+// AI Prompt Request Log Types
+// A single persisted AI prompt execution (mirrors the AccountPromptRequest server model).
+export interface PromptRequest {
+  id: number;
+  account_id: number;
+  prompt: string;
+  provider: string;
+  model: string;
+  output: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  duration_ms: number;
+  estimated_cost_usd: number;
+  status: string;
+  error?: string;
+  date_created: string;
+}
+
+export interface ListPromptRequestsParams {
+  provider?: string;
+  model?: string;
+  status?: string;
+  search?: string;
+  start?: string; // RFC3339
+  end?: string; // RFC3339
+  order?: string; // ASC or DESC
+  limit?: number;
+  offset?: number;
+}
+
+export interface PromptRequestsResponse {
+  success: boolean;
+  data: {
+    requests: PromptRequest[];
+    total: number;
+    limit: number;
+    offset: number;
+  };
 }
 
 // AI Prompt Types

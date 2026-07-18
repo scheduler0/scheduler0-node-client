@@ -1,13 +1,20 @@
 import {
   AccountCreateRequestBody,
+  AccountUpdateRequestBody,
   AccountResponse,
   AccountExecutionCountResponse,
   AccountExecutionCountIncreaseResponse,
+  AccountClassifyCountResponse,
+  AccountClassifyCountIncreaseResponse,
+  AccountPromptCountResponse,
+  AccountPromptCountIncreaseResponse,
   AccountTokensResponse,
   AccountTokensAddResponse,
   AccountAISettings,
   AccountAISettingsResponse,
   AIModelsResponse,
+  ListPromptRequestsParams,
+  PromptRequestsResponse,
   FeatureRequest,
   FeatureRequestResponse,
   FeaturesResponse,
@@ -261,12 +268,34 @@ export class Client {
     return this.request<AccountResponse>('GET', `/accounts/${id}`);
   }
 
+  async updateAccount(id: string, body: AccountUpdateRequestBody): Promise<AccountResponse> {
+    return this.request<AccountResponse>('PUT', `/accounts/${id}`, body);
+  }
+
   async getAccountExecutionCount(accountId: string): Promise<AccountExecutionCountResponse> {
     return this.request<AccountExecutionCountResponse>('GET', `/accounts/${accountId}/execution-count`);
   }
 
   async increaseAccountExecutionCount(accountId: string, count: number): Promise<AccountExecutionCountIncreaseResponse> {
     return this.request<AccountExecutionCountIncreaseResponse>('PUT', `/accounts/${accountId}/execution-count`, { count });
+  }
+
+  // Remaining monthly AI classify-request quota for an account.
+  async getAccountClassifyCount(accountId: string): Promise<AccountClassifyCountResponse> {
+    return this.request<AccountClassifyCountResponse>('GET', `/accounts/${accountId}/classify-count`, undefined, undefined, accountId);
+  }
+
+  async increaseAccountClassifyCount(accountId: string, count: number): Promise<AccountClassifyCountIncreaseResponse> {
+    return this.request<AccountClassifyCountIncreaseResponse>('PUT', `/accounts/${accountId}/classify-count`, { count }, undefined, accountId);
+  }
+
+  // Remaining monthly AI prompt-request quota for an account.
+  async getAccountPromptCount(accountId: string): Promise<AccountPromptCountResponse> {
+    return this.request<AccountPromptCountResponse>('GET', `/accounts/${accountId}/prompt-count`, undefined, undefined, accountId);
+  }
+
+  async increaseAccountPromptCount(accountId: string, count: number): Promise<AccountPromptCountIncreaseResponse> {
+    return this.request<AccountPromptCountIncreaseResponse>('PUT', `/accounts/${accountId}/prompt-count`, { count }, undefined, accountId);
   }
 
   async addFeatureToAccount(accountId: string, body: FeatureRequest): Promise<FeatureRequestResponse> {
@@ -866,6 +895,24 @@ export class Client {
 
   async getAIModels(): Promise<AIModelsResponse> {
     return this.request<AIModelsResponse>('GET', '/ai/models', undefined, undefined, undefined);
+  }
+
+  /**
+   * Retrieve the account's AI prompt-request log with optional filters and pagination.
+   */
+  async listPromptRequests(params: ListPromptRequestsParams = {}, accountIdOverride?: string): Promise<PromptRequestsResponse> {
+    const queryParams: Record<string, string | number | undefined> = {
+      limit: params.limit,
+      offset: params.offset,
+      provider: params.provider,
+      model: params.model,
+      status: params.status,
+      search: params.search,
+      start: params.start,
+      end: params.end,
+      order: params.order,
+    };
+    return this.request<PromptRequestsResponse>('GET', '/ai/prompt-requests', undefined, queryParams, accountIdOverride);
   }
 
   // Account Tokens Methods

@@ -173,9 +173,20 @@ await client.removeFeatureFromAccount('account-id', {
   featureId: 1
 });
 
+// Rename an account
+await client.updateAccount('account-id', { name: 'New Name' });
+
 // Get / increase the account's monthly execution count
 const count = await client.getAccountExecutionCount('account-id');
 const increased = await client.increaseAccountExecutionCount('account-id', 10000);
+
+// Get / increase the account's monthly AI classify-request quota
+const classify = await client.getAccountClassifyCount('account-id');
+const classifyBumped = await client.increaseAccountClassifyCount('account-id', 1000);
+
+// Get / increase the account's monthly AI prompt-request quota
+const prompt = await client.getAccountPromptCount('account-id');
+const promptBumped = await client.increaseAccountPromptCount('account-id', 1000);
 
 // Get / add platform tokens
 const tokens = await client.getAccountTokens('account-id');
@@ -207,6 +218,24 @@ await client.upsertAccountAISettings({
   openai_api_key: 'sk-...',
   anthropic_api_key: 'sk-ant-...'
 });
+```
+
+### AI Prompt Request Log
+
+Retrieve the account's AI prompt-request history with optional filters and pagination.
+
+```typescript
+const log = await client.listPromptRequests({
+  provider: 'openai',
+  status: 'success',
+  search: 'reminder',
+  limit: 25,
+  offset: 0,
+});
+// log.data = { requests: PromptRequest[], total, limit, offset }
+for (const req of log.data.requests) {
+  console.log(req.model, req.total_tokens, req.estimated_cost_usd, req.status);
+}
 ```
 
 ### Managing Features
