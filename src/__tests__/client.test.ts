@@ -1626,7 +1626,7 @@ describe('Client', () => {
       expect(result.suggestions).toHaveLength(1);
       expect(result.suggestions[0].id).toBe('sts_001');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/ai/send-time-suggestions'),
+        expect.stringContaining('/api/v1/ai/suggestions/time'),
         expect.objectContaining({ method: 'POST' })
       );
     });

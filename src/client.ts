@@ -745,7 +745,7 @@ export class Client {
    */
   async sendTimeSuggestions(body: SendTimeSuggestionsRequest, accountIdOverride?: string): Promise<SendTimeSuggestionsResult> {
     const versionPrefix = `/api/${this.version}`;
-    const url = `${this.baseURL}${versionPrefix}/ai/send-time-suggestions`;
+    const url = `${this.baseURL}${versionPrefix}/ai/suggestions/time`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
