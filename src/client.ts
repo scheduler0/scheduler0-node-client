@@ -55,6 +55,10 @@ import {
   ClassifyPromptRequest,
   AnalyzeSuggestionsRequest,
   AnalyzeSuggestionsResult,
+  SendTimeSuggestionsRequest,
+  SendTimeSuggestionsResult,
+  SchedulePromptRequest,
+  ScheduleResult,
   BackupRestoreResponse,
   RestoreRequest,
   LocalExecutorRegisterRequest,
@@ -570,7 +574,7 @@ export class Client {
   // AI Prompt Methods
   async createJobFromPrompt(body: PromptJobRequest, accountIdOverride?: string): Promise<PromptResult> {
     const versionPrefix = `/api/${this.version}`;
-    const url = `${this.baseURL}${versionPrefix}/prompt`;
+    const url = `${this.baseURL}${versionPrefix}/ai/prompt`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -629,7 +633,7 @@ export class Client {
 
   async classifyPrompt(body: ClassifyPromptRequest, accountIdOverride?: string): Promise<IntentClassification> {
     const versionPrefix = `/api/${this.version}`;
-    const url = `${this.baseURL}${versionPrefix}/prompt/classify`;
+    const url = `${this.baseURL}${versionPrefix}/ai/prompt/classify`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -687,7 +691,7 @@ export class Client {
    */
   async analyzeSuggestions(body: AnalyzeSuggestionsRequest, accountIdOverride?: string): Promise<AnalyzeSuggestionsResult> {
     const versionPrefix = `/api/${this.version}`;
-    const url = `${this.baseURL}${versionPrefix}/suggestions/analyze`;
+    const url = `${this.baseURL}${versionPrefix}/ai/suggestions/analyze`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -735,14 +739,129 @@ export class Client {
     return envelope.data;
   }
 
+  /**
+   * Recommend suitable future send times for a message given sender/recipient
+   * time zones, working hours, quiet hours, weekends, priority, and coverage
+   * rules. The engine is deterministic and does not send the message or create
+   * a job.
+   */
+  async sendTimeSuggestions(body: SendTimeSuggestionsRequest, accountIdOverride?: string): Promise<SendTimeSuggestionsResult> {
+    const versionPrefix = `/api/${this.version}`;
+    const url = `${this.baseURL}${versionPrefix}/ai/suggestions/time`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.username && this.password) {
+      const auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+      headers['X-Peer'] = 'cmd';
+    } else if (this.apiKey && this.apiSecret) {
+      headers['X-API-Key'] = this.apiKey;
+      headers['X-Secret-Key'] = this.apiSecret;
+    }
+
+    const accountID = accountIdOverride || this.accountId;
+    if (accountID) {
+      headers['X-Account-ID'] = accountID;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (response.status >= 400) {
+      const responseText = await response.text();
+      let errorData: any;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        errorData = responseText;
+      }
+      if (errorData && typeof errorData === 'object' && 'success' in errorData && 'data' in errorData) {
+        const errorMessage = typeof errorData.data === 'string'
+          ? errorData.data
+          : JSON.stringify(errorData.data);
+        throw new Error(`API error: ${response.status} - ${errorMessage}`);
+      }
+      throw new Error(`API error: ${response.status} - ${responseText}`);
+    }
+
+    const responseText = await response.text();
+    const envelope = JSON.parse(responseText) as { success: boolean; data: SendTimeSuggestionsResult };
+    return envelope.data;
+  }
+
+  /**
+   * Turn a natural-language prompt into actually-scheduled jobs. The server runs the prompt
+   * pipeline (intent guardrail + generation), resolves or creates a project, picks the
+   * executor whose description/tags best match the prompt (or uses a pinned/only executor),
+   * and creates the jobs synchronously.
+   *
+   * A prompt rejected by the intent guardrail throws an Error (HTTP 422); a prompt with no
+   * schedulable jobs or no matching executor throws an Error (HTTP 409).
+   */
+  async scheduleFromPrompt(body: SchedulePromptRequest, accountIdOverride?: string): Promise<ScheduleResult> {
+    const versionPrefix = `/api/${this.version}`;
+    const url = `${this.baseURL}${versionPrefix}/ai/schedule`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.username && this.password) {
+      const auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+      headers['X-Peer'] = 'cmd';
+    } else if (this.apiKey && this.apiSecret) {
+      headers['X-API-Key'] = this.apiKey;
+      headers['X-Secret-Key'] = this.apiSecret;
+    }
+
+    const accountID = accountIdOverride || this.accountId;
+    if (accountID) {
+      headers['X-Account-ID'] = accountID;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (response.status >= 400) {
+      const responseText = await response.text();
+      let errorData: any;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        errorData = responseText;
+      }
+      if (errorData && typeof errorData === 'object' && 'success' in errorData && 'data' in errorData) {
+        const errorMessage = typeof errorData.data === 'string'
+          ? errorData.data
+          : JSON.stringify(errorData.data);
+        throw new Error(`API error: ${response.status} - ${errorMessage}`);
+      }
+      throw new Error(`API error: ${response.status} - ${responseText}`);
+    }
+
+    const responseText = await response.text();
+    const envelope = JSON.parse(responseText) as { success: boolean; data: ScheduleResult };
+    return envelope.data;
+  }
+
   // Account AI Settings Methods
 
   async getAccountAISettings(accountIdOverride?: string): Promise<AccountAISettingsResponse> {
-    return this.request<AccountAISettingsResponse>('GET', '/account/ai-settings', undefined, undefined, accountIdOverride);
+    return this.request<AccountAISettingsResponse>('GET', '/ai/settings', undefined, undefined, accountIdOverride);
   }
 
   async upsertAccountAISettings(body: AccountAISettings, accountIdOverride?: string): Promise<{ success: boolean; data: { message: string } }> {
-    return this.request<{ success: boolean; data: { message: string } }>('PUT', '/account/ai-settings', body, undefined, accountIdOverride);
+    return this.request<{ success: boolean; data: { message: string } }>('PUT', '/ai/settings', body, undefined, accountIdOverride);
   }
 
   async getAIModels(): Promise<AIModelsResponse> {

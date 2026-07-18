@@ -1501,7 +1501,7 @@ describe('Client', () => {
       expect(result.providers).toHaveLength(1);
       expect(result.classification?.decision).toBe('allow');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/prompt'),
+        expect.stringContaining('/api/v1/ai/prompt'),
         expect.objectContaining({
           method: 'POST',
         })
@@ -1536,7 +1536,7 @@ describe('Client', () => {
       expect(result).toEqual(mockClassification);
       expect(result.decision).toBe('reject');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/prompt/classify'),
+        expect.stringContaining('/api/v1/ai/prompt/classify'),
         expect.objectContaining({ method: 'POST' })
       );
     });
@@ -1582,7 +1582,93 @@ describe('Client', () => {
       expect(result.suggestions).toHaveLength(1);
       expect(result.suggestions[0].type).toBe('COMMITMENT');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/suggestions/analyze'),
+        expect.stringContaining('/api/v1/ai/suggestions/analyze'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('should recommend send times', async () => {
+      const envelope = {
+        success: true,
+        data: {
+          request_id: 'req_1',
+          reference_time: '2026-07-17T17:45:00-04:00',
+          policy: { id: 'default_send_time', version: '1.0.0' },
+          engine: { version: '1.0.0' },
+          suggestions: [{ id: 'sts_001', send_at: '2026-07-20T12:00:00-04:00', label: 'Monday morning', score: 0.94, rank: 1 }],
+          search: { candidates_generated: 143, candidates_scored: 16 },
+          warnings: [],
+        },
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => envelope,
+        text: async () => JSON.stringify(envelope),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.sendTimeSuggestions({
+        sender: { id: 'user_123', timezone: 'America/Toronto' },
+        recipients: [{ id: 'user_456', timezone: 'America/Los_Angeles', role: 'primary' }],
+        message: { priority: 'normal' },
+      });
+
+      expect(result.request_id).toBe('req_1');
+      expect(result.reference_time).toBe('2026-07-17T17:45:00-04:00');
+      expect(result.suggestions).toHaveLength(1);
+      expect(result.suggestions[0].id).toBe('sts_001');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/ai/suggestions/time'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('should schedule jobs from a prompt', async () => {
+      const envelope = {
+        success: true,
+        data: {
+          classification: { text: 'remind the team every monday', decision: 'allow', reason: 'request_with_temporal_signal' },
+          project: { id: 7, accountId: 123, name: 'Team reminders', description: 'auto', dateCreated: '2026-07-17T00:00:00Z' },
+          projectCreated: true,
+          executor: { id: 3, accountId: 123, name: 'Email sender', description: 'sends email', tags: ['email'], type: 'webhook_url', dateCreated: '2026-07-17T00:00:00Z' },
+          executorMatchedBy: 'llm',
+          executorMatchReason: 'matches email channel',
+          jobs: [{ id: 11, accountId: 123, projectId: 7, executorId: 3, spec: '0 9 * * 1', timezone: 'UTC', status: 'active', dateCreated: '2026-07-17T00:00:00Z' }],
+          provider: 'openai',
+          model: 'gpt-4',
+        },
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => envelope,
+        text: async () => JSON.stringify(envelope),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(baseURL, 'v1', apiKey, apiSecret, accountId);
+      const result = await client.scheduleFromPrompt({
+        prompt: 'Remind the team every Monday at 9am',
+        channels: ['email'],
+        createdBy: 'victor',
+      });
+
+      expect(result.project.id).toBe(7);
+      expect(result.projectCreated).toBe(true);
+      expect(result.executor.id).toBe(3);
+      expect(result.executorMatchedBy).toBe('llm');
+      expect(result.jobs).toHaveLength(1);
+      expect(result.jobs[0].id).toBe(11);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/ai/schedule'),
         expect.objectContaining({ method: 'POST' })
       );
     });

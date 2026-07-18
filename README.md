@@ -568,6 +568,47 @@ for (const suggestion of result.suggestions) {
 }
 ```
 
+### Recommending Send Times
+
+Recommend suitable future send times for a message given sender/recipient time zones, working hours, quiet hours, weekends, priority, and coverage rules. The engine is deterministic and does not send the message or create a job:
+
+```typescript
+const result = await client.sendTimeSuggestions({
+  sender: { id: 'user_123', timezone: 'America/Toronto' },
+  recipients: [
+    { id: 'user_456', timezone: 'America/Los_Angeles', role: 'primary' },
+  ],
+  message: { priority: 'normal' },
+});
+
+for (const suggestion of result.suggestions) {
+  console.log(suggestion.send_at, suggestion.score, suggestion.label);
+}
+```
+
+### Scheduling from a Prompt
+
+Turn a natural-language prompt into actually-scheduled jobs in one call. The server runs the prompt pipeline (intent guardrail + generation), resolves or creates a project, picks the executor whose `description`/`tags` best match the prompt (or uses a pinned `executorId` / the account's only executor), and creates the jobs synchronously:
+
+```typescript
+const result = await client.scheduleFromPrompt({
+  prompt: 'Remind the sales team every Monday at 9am to review the pipeline',
+  channels: ['email'],
+  createdBy: 'victor',
+  // Optional: pin a project or executor, otherwise they are resolved/created for you.
+  // project: { name: 'Sales reminders' },
+  // executorId: 3,
+});
+
+console.log(
+  `project ${result.project.id} (created=${result.projectCreated}), ` +
+  `executor ${result.executor.id} matched by ${result.executorMatchedBy}, ` +
+  `${result.jobs.length} jobs created`
+);
+```
+
+Executor selection uses each executor's `description` and `tags` (set them on `createExecutor` / `updateExecutor`). When the account has more than one executor and no `executorId` is pinned, the model picks the best match; if it cannot confidently match, the call throws with a `409` error (pin an `executorId` or refine descriptions/tags). A prompt rejected by the intent guardrail throws a `422` error.
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
@@ -643,7 +684,8 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/executors/*`
 - `/api/v1/async-tasks/*`
 - `/api/v1/executions`
-- `/api/v1/prompt` (AI prompt endpoint)
+- `/api/v1/ai/prompt` (AI prompt endpoint)
+- `/api/v1/ai/schedule` (prompt-to-scheduled-jobs endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 
@@ -668,7 +710,7 @@ const credential = await client.createCredential(
 
 ## Credits and AI Features
 
-The AI prompt endpoint (`/api/v1/prompt`) requires:
+The AI prompt endpoint (`/api/v1/ai/prompt`) requires:
 - **Credits**: 1 credit per prompt execution
 - **Authentication**: Valid API Key + Secret credentials
 - **Account ID**: Required header for credit deduction
