@@ -1542,6 +1542,52 @@ describe('Client', () => {
     });
   });
 
+  describe('Suggestions Methods', () => {
+    it('should analyze a conversation for suggestions', async () => {
+      const envelope = {
+        success: true,
+        data: {
+          request_id: 'req_1',
+          conversation_id: 'conv_123',
+          suggestions: [{ id: 'sug_001', type: 'COMMITMENT', status: 'OPEN', confidence: 0.95 }],
+          obligations: [{ id: 'obl_001', status: 'OPEN', suggestion_id: 'sug_001' }],
+          warnings: [],
+          engine: { engine_version: '1.0.0' },
+        },
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => envelope,
+        text: async () => JSON.stringify(envelope),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.analyzeSuggestions({
+        conversation_id: 'conv_123',
+        messages: [
+          { speaker: 'Victor', timestamp: '2026-07-17T10:00:00-04:00', message: "I'll send the proposal tomorrow." },
+        ],
+        options: { locale: 'en', default_timezone: 'America/Toronto' },
+      });
+
+      expect(result.conversation_id).toBe('conv_123');
+      expect(result.suggestions).toHaveLength(1);
+      expect(result.suggestions[0].type).toBe('COMMITMENT');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/suggestions/analyze'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+  });
+
   describe('Error Handling', () => {
     it('should handle 400 errors', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({

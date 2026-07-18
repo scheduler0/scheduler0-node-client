@@ -53,6 +53,8 @@ import {
   PromptResult,
   IntentClassification,
   ClassifyPromptRequest,
+  AnalyzeSuggestionsRequest,
+  AnalyzeSuggestionsResult,
   BackupRestoreResponse,
   RestoreRequest,
   LocalExecutorRegisterRequest,
@@ -673,6 +675,64 @@ export class Client {
     const responseText = await response.text();
     const envelope = JSON.parse(responseText) as { success: boolean; data: { classification: IntentClassification } };
     return envelope.data.classification;
+  }
+
+  /**
+   * Analyze a conversation and return structured, explainable suggestions
+   * (commitments, requests, deadlines, follow-ups, etc.) plus the obligations
+   * they map to.
+   *
+   * English only: a non-`en*` locale in `options` is rejected by the API with
+   * UNSUPPORTED_LOCALE (400).
+   */
+  async analyzeSuggestions(body: AnalyzeSuggestionsRequest, accountIdOverride?: string): Promise<AnalyzeSuggestionsResult> {
+    const versionPrefix = `/api/${this.version}`;
+    const url = `${this.baseURL}${versionPrefix}/suggestions/analyze`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.username && this.password) {
+      const auth = Buffer.from(`${this.username}:${this.password}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+      headers['X-Peer'] = 'cmd';
+    } else if (this.apiKey && this.apiSecret) {
+      headers['X-API-Key'] = this.apiKey;
+      headers['X-Secret-Key'] = this.apiSecret;
+    }
+
+    const accountID = accountIdOverride || this.accountId;
+    if (accountID) {
+      headers['X-Account-ID'] = accountID;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (response.status >= 400) {
+      const responseText = await response.text();
+      let errorData: any;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        errorData = responseText;
+      }
+      if (errorData && typeof errorData === 'object' && 'success' in errorData && 'data' in errorData) {
+        const errorMessage = typeof errorData.data === 'string'
+          ? errorData.data
+          : JSON.stringify(errorData.data);
+        throw new Error(`API error: ${response.status} - ${errorMessage}`);
+      }
+      throw new Error(`API error: ${response.status} - ${responseText}`);
+    }
+
+    const responseText = await response.text();
+    const envelope = JSON.parse(responseText) as { success: boolean; data: AnalyzeSuggestionsResult };
+    return envelope.data;
   }
 
   // Account AI Settings Methods
