@@ -568,6 +568,24 @@ for (const suggestion of result.suggestions) {
 }
 ```
 
+### Recommending Send Times
+
+Recommend suitable future send times for a message given sender/recipient time zones, working hours, quiet hours, weekends, priority, and coverage rules. The engine is deterministic and does not send the message or create a job:
+
+```typescript
+const result = await client.sendTimeSuggestions({
+  sender: { id: 'user_123', timezone: 'America/Toronto' },
+  recipients: [
+    { id: 'user_456', timezone: 'America/Los_Angeles', role: 'primary' },
+  ],
+  message: { priority: 'normal' },
+});
+
+for (const suggestion of result.suggestions) {
+  console.log(suggestion.send_at, suggestion.score, suggestion.label);
+}
+```
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
@@ -643,7 +661,7 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/executors/*`
 - `/api/v1/async-tasks/*`
 - `/api/v1/executions`
-- `/api/v1/prompt` (AI prompt endpoint)
+- `/api/v1/ai/prompt` (AI prompt endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 
@@ -668,7 +686,7 @@ const credential = await client.createCredential(
 
 ## Credits and AI Features
 
-The AI prompt endpoint (`/api/v1/prompt`) requires:
+The AI prompt endpoint (`/api/v1/ai/prompt`) requires:
 - **Credits**: 1 credit per prompt execution
 - **Authentication**: Valid API Key + Secret credentials
 - **Account ID**: Required header for credit deduction

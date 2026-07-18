@@ -640,6 +640,127 @@ export interface AnalyzeSuggestionsResult {
   engine?: Record<string, any>;
 }
 
+// Send-Time Suggestions Types
+// The engine is deterministic scheduling/time-zone math (no LLM). All keys are
+// snake_case to match the API contract.
+
+export interface SendTimeWorkingHours {
+  days?: string[];
+  start?: string;
+  end?: string;
+}
+
+export interface SendTimeQuietHours {
+  start?: string;
+  end?: string;
+}
+
+export interface SendTimeParticipant {
+  id?: string;
+  display_name?: string;
+  timezone: string;
+  role?: string;
+  working_hours?: SendTimeWorkingHours;
+  quiet_hours?: SendTimeQuietHours;
+}
+
+export interface SendTimeMessage {
+  channel?: string;
+  priority?: string;
+  intent?: string;
+  text?: string;
+  estimated_attention?: string;
+}
+
+export interface SendTimeConstraints {
+  earliest_send_at?: string;
+  latest_send_at?: string;
+  minimum_delay_seconds?: number;
+  working_hours_only?: boolean;
+  avoid_weekends?: boolean;
+  avoid_holidays?: boolean;
+  respect_quiet_hours?: boolean;
+  require_calendar_free?: boolean;
+}
+
+export interface SendTimeWindow {
+  start: string;
+  end: string;
+}
+
+export interface SendTimePreferences {
+  preferred_recipient_windows?: SendTimeWindow[];
+  avoid_recipient_windows?: SendTimeWindow[];
+  prefer_sender_recipient_overlap?: boolean;
+}
+
+export interface SendTimeGroupPolicy {
+  strategy?: string;
+  minimum_recipient_coverage?: number;
+}
+
+export interface SendTimeOptions {
+  reference_time?: string;
+  suggestion_count?: number;
+  candidate_interval_minutes?: number;
+  locale?: string;
+  include_score_breakdown?: boolean;
+  include_rejected_summary?: boolean;
+  search_horizon_days?: number;
+  evaluate_send_now?: boolean;
+  diversify_suggestions?: boolean;
+  minimum_suggestion_spacing_minutes?: number;
+}
+
+export interface SendTimeHolidayPolicy {
+  country?: string;
+  region?: string;
+  calendar_id?: string;
+  dates?: string[];
+}
+
+export interface SendTimeBusyInterval {
+  start: string;
+  end: string;
+}
+
+export interface SendTimeAvailability {
+  participant_id: string;
+  busy_intervals?: SendTimeBusyInterval[];
+}
+
+export interface SendTimeSuggestionsRequest {
+  sender?: SendTimeParticipant;
+  recipients: SendTimeParticipant[];
+  message?: SendTimeMessage;
+  constraints?: SendTimeConstraints;
+  preferences?: SendTimePreferences;
+  group_policy?: SendTimeGroupPolicy;
+  options?: SendTimeOptions;
+  holiday_policy?: SendTimeHolidayPolicy;
+  availability?: SendTimeAvailability[];
+  metadata?: Record<string, any>;
+}
+
+/**
+ * The send-time engine's response. The top-level fields are typed; individual
+ * suggestions and the search/send_now blocks carry a rich, evolving shape, so
+ * they are typed loosely.
+ */
+export interface SendTimeSuggestionsResult {
+  request_id?: string;
+  reference_time?: string;
+  policy?: Record<string, any>;
+  engine?: Record<string, any>;
+  suggestions: Record<string, any>[];
+  search?: Record<string, any>;
+  rejected_summary?: Record<string, number>;
+  no_suggestion?: Record<string, any>;
+  send_now?: Record<string, any>;
+  warnings: Record<string, any>[];
+  metadata?: Record<string, any>;
+}
+
 // Execution Analytics Types
 export interface DateRangeAnalyticsPoint {
   date: string;
