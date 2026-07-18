@@ -586,6 +586,29 @@ for (const suggestion of result.suggestions) {
 }
 ```
 
+### Scheduling from a Prompt
+
+Turn a natural-language prompt into actually-scheduled jobs in one call. The server runs the prompt pipeline (intent guardrail + generation), resolves or creates a project, picks the executor whose `description`/`tags` best match the prompt (or uses a pinned `executorId` / the account's only executor), and creates the jobs synchronously:
+
+```typescript
+const result = await client.scheduleFromPrompt({
+  prompt: 'Remind the sales team every Monday at 9am to review the pipeline',
+  channels: ['email'],
+  createdBy: 'victor',
+  // Optional: pin a project or executor, otherwise they are resolved/created for you.
+  // project: { name: 'Sales reminders' },
+  // executorId: 3,
+});
+
+console.log(
+  `project ${result.project.id} (created=${result.projectCreated}), ` +
+  `executor ${result.executor.id} matched by ${result.executorMatchedBy}, ` +
+  `${result.jobs.length} jobs created`
+);
+```
+
+Executor selection uses each executor's `description` and `tags` (set them on `createExecutor` / `updateExecutor`). When the account has more than one executor and no `executorId` is pinned, the model picks the best match; if it cannot confidently match, the call throws with a `409` error (pin an `executorId` or refine descriptions/tags). A prompt rejected by the intent guardrail throws a `422` error.
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
@@ -662,6 +685,7 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/async-tasks/*`
 - `/api/v1/executions`
 - `/api/v1/ai/prompt` (AI prompt endpoint)
+- `/api/v1/ai/schedule` (prompt-to-scheduled-jobs endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 

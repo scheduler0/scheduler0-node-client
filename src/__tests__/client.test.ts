@@ -1630,6 +1630,48 @@ describe('Client', () => {
         expect.objectContaining({ method: 'POST' })
       );
     });
+
+    it('should schedule jobs from a prompt', async () => {
+      const envelope = {
+        success: true,
+        data: {
+          classification: { text: 'remind the team every monday', decision: 'allow', reason: 'request_with_temporal_signal' },
+          project: { id: 7, accountId: 123, name: 'Team reminders', description: 'auto', dateCreated: '2026-07-17T00:00:00Z' },
+          projectCreated: true,
+          executor: { id: 3, accountId: 123, name: 'Email sender', description: 'sends email', tags: ['email'], type: 'webhook_url', dateCreated: '2026-07-17T00:00:00Z' },
+          executorMatchedBy: 'llm',
+          executorMatchReason: 'matches email channel',
+          jobs: [{ id: 11, accountId: 123, projectId: 7, executorId: 3, spec: '0 9 * * 1', timezone: 'UTC', status: 'active', dateCreated: '2026-07-17T00:00:00Z' }],
+          provider: 'openai',
+          model: 'gpt-4',
+        },
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => envelope,
+        text: async () => JSON.stringify(envelope),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(baseURL, 'v1', apiKey, apiSecret, accountId);
+      const result = await client.scheduleFromPrompt({
+        prompt: 'Remind the team every Monday at 9am',
+        channels: ['email'],
+        createdBy: 'victor',
+      });
+
+      expect(result.project.id).toBe(7);
+      expect(result.projectCreated).toBe(true);
+      expect(result.executor.id).toBe(3);
+      expect(result.executorMatchedBy).toBe('llm');
+      expect(result.jobs).toHaveLength(1);
+      expect(result.jobs[0].id).toBe(11);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/ai/schedule'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
   });
 
   describe('Error Handling', () => {
