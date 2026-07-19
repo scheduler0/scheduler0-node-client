@@ -379,6 +379,17 @@ const updatedExecutor = await client.updateExecutor('executor-id', {
 await client.deleteExecutor('executor-id', {
   deletedBy: 'user-id'
 });
+
+// Test-invoke an executor with a synthetic job — fires immediately (no waiting
+// for the cron spec/start date) and has no side effects (nothing is persisted
+// or rescheduled). The body is optional; omit it to use a default synthetic job.
+const testResult = await client.testInvokeExecutor('executor-id', {
+  job: { spec: '0 2 * * *', data: JSON.stringify({ action: 'process_data' }), timezone: 'UTC', retryMax: 2 },
+  age: '24h',                        // how old the synthetic entry should appear
+  executionTime: '2024-01-15T02:00:00Z', // optional; defaults to now
+});
+// HTTP 200 even when the target fails; check testResult.data.success.
+console.log('invocation succeeded:', testResult.data.success);
 ```
 
 ### Managing Local Executors
