@@ -137,6 +137,145 @@ describe('Client', () => {
       );
     });
 
+    it('should update an account', async () => {
+      const mockResponse: AccountResponse = {
+        success: true,
+        data: {
+          id: 1,
+          name: 'Renamed Account',
+          features: [],
+          dateCreated: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.updateAccount('1', { name: 'Renamed Account' });
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/accounts/1'),
+        expect.objectContaining({ method: 'PUT' })
+      );
+    });
+
+    it('should get account classify count', async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          requestCount: 950,
+          dateCreated: '2025-01-01T00:00:00Z',
+          dateModified: '2025-01-01T00:00:00Z',
+          nextResetDate: '2025-02-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.getAccountClassifyCount('123');
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/accounts/123/classify-count'),
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({ 'X-Account-ID': '123' }),
+        })
+      );
+    });
+
+    it('should increase account classify count', async () => {
+      const mockResponse = { success: true, data: { newClassifyCount: 1000 } };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.increaseAccountClassifyCount('123', 50);
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/accounts/123/classify-count'),
+        expect.objectContaining({ method: 'PUT' })
+      );
+    });
+
+    it('should get account prompt count', async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          id: 1,
+          accountId: 123,
+          requestCount: 800,
+          dateCreated: '2025-01-01T00:00:00Z',
+          dateModified: '2025-01-01T00:00:00Z',
+          nextResetDate: '2025-02-01T00:00:00Z',
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.getAccountPromptCount('123');
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/accounts/123/prompt-count'),
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({ 'X-Account-ID': '123' }),
+        })
+      );
+    });
+
+    it('should increase account prompt count', async () => {
+      const mockResponse = { success: true, data: { newPromptCount: 900 } };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
+      const result = await client.increaseAccountPromptCount('123', 100);
+
+      expect(result).toEqual(mockResponse);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/accounts/123/prompt-count'),
+        expect.objectContaining({ method: 'PUT' })
+      );
+    });
+
     it('should add feature to account', async () => {
       const mockResponse = {
         success: true,
@@ -1501,7 +1640,7 @@ describe('Client', () => {
       expect(result.providers).toHaveLength(1);
       expect(result.classification?.decision).toBe('allow');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/prompt'),
+        expect.stringContaining('/api/v1/ai/prompt'),
         expect.objectContaining({
           method: 'POST',
         })
@@ -1536,7 +1675,7 @@ describe('Client', () => {
       expect(result).toEqual(mockClassification);
       expect(result.decision).toBe('reject');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/prompt/classify'),
+        expect.stringContaining('/api/v1/ai/prompt/classify'),
         expect.objectContaining({ method: 'POST' })
       );
     });
@@ -1582,9 +1721,141 @@ describe('Client', () => {
       expect(result.suggestions).toHaveLength(1);
       expect(result.suggestions[0].type).toBe('COMMITMENT');
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/suggestions/analyze'),
+        expect.stringContaining('/api/v1/ai/suggestions/analyze'),
         expect.objectContaining({ method: 'POST' })
       );
+    });
+
+    it('should recommend send times', async () => {
+      const envelope = {
+        success: true,
+        data: {
+          request_id: 'req_1',
+          reference_time: '2026-07-17T17:45:00-04:00',
+          policy: { id: 'default_send_time', version: '1.0.0' },
+          engine: { version: '1.0.0' },
+          suggestions: [{ id: 'sts_001', send_at: '2026-07-20T12:00:00-04:00', label: 'Monday morning', score: 0.94, rank: 1 }],
+          search: { candidates_generated: 143, candidates_scored: 16 },
+          warnings: [],
+        },
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => envelope,
+        text: async () => JSON.stringify(envelope),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.sendTimeSuggestions({
+        sender: { id: 'user_123', timezone: 'America/Toronto' },
+        recipients: [{ id: 'user_456', timezone: 'America/Los_Angeles', role: 'primary' }],
+        message: { priority: 'normal' },
+      });
+
+      expect(result.request_id).toBe('req_1');
+      expect(result.reference_time).toBe('2026-07-17T17:45:00-04:00');
+      expect(result.suggestions).toHaveLength(1);
+      expect(result.suggestions[0].id).toBe('sts_001');
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/ai/suggestions/time'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('should schedule jobs from a prompt', async () => {
+      const envelope = {
+        success: true,
+        data: {
+          classification: { text: 'remind the team every monday', decision: 'allow', reason: 'request_with_temporal_signal' },
+          project: { id: 7, accountId: 123, name: 'Team reminders', description: 'auto', dateCreated: '2026-07-17T00:00:00Z' },
+          projectCreated: true,
+          executor: { id: 3, accountId: 123, name: 'Email sender', description: 'sends email', tags: ['email'], type: 'webhook_url', dateCreated: '2026-07-17T00:00:00Z' },
+          executorMatchedBy: 'llm',
+          executorMatchReason: 'matches email channel',
+          jobs: [{ id: 11, accountId: 123, projectId: 7, executorId: 3, spec: '0 9 * * 1', timezone: 'UTC', status: 'active', dateCreated: '2026-07-17T00:00:00Z' }],
+          provider: 'openai',
+          model: 'gpt-4',
+        },
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => envelope,
+        text: async () => JSON.stringify(envelope),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(baseURL, 'v1', apiKey, apiSecret, accountId);
+      const result = await client.scheduleFromPrompt({
+        prompt: 'Remind the team every Monday at 9am',
+        channels: ['email'],
+        createdBy: 'victor',
+      });
+
+      expect(result.project.id).toBe(7);
+      expect(result.projectCreated).toBe(true);
+      expect(result.executor.id).toBe(3);
+      expect(result.executorMatchedBy).toBe('llm');
+      expect(result.jobs).toHaveLength(1);
+      expect(result.jobs[0].id).toBe(11);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/ai/schedule'),
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('should list prompt requests with filters', async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          requests: [
+            {
+              id: 1,
+              account_id: 123,
+              prompt: 'Remind me every Monday',
+              provider: 'openai',
+              model: 'gpt-4.1-mini',
+              output: '{}',
+              input_tokens: 100,
+              output_tokens: 50,
+              total_tokens: 150,
+              duration_ms: 420,
+              estimated_cost_usd: 0.0001,
+              status: 'success',
+              date_created: '2025-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 25,
+          offset: 0,
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(baseURL, 'v1', apiKey, apiSecret, accountId);
+      const result = await client.listPromptRequests({ provider: 'openai', status: 'success', limit: 25, offset: 0 });
+
+      expect(result).toEqual(mockResponse);
+      expect(result.data.requests[0].total_tokens).toBe(150);
+      const calledUrl = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+      expect(calledUrl).toContain('/api/v1/ai/prompt-requests');
+      expect(calledUrl).toContain('provider=openai');
+      expect(calledUrl).toContain('status=success');
     });
   });
 

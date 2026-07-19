@@ -173,9 +173,20 @@ await client.removeFeatureFromAccount('account-id', {
   featureId: 1
 });
 
+// Rename an account
+await client.updateAccount('account-id', { name: 'New Name' });
+
 // Get / increase the account's monthly execution count
 const count = await client.getAccountExecutionCount('account-id');
 const increased = await client.increaseAccountExecutionCount('account-id', 10000);
+
+// Get / increase the account's monthly AI classify-request quota
+const classify = await client.getAccountClassifyCount('account-id');
+const classifyBumped = await client.increaseAccountClassifyCount('account-id', 1000);
+
+// Get / increase the account's monthly AI prompt-request quota
+const prompt = await client.getAccountPromptCount('account-id');
+const promptBumped = await client.increaseAccountPromptCount('account-id', 1000);
 
 // Get / add platform tokens
 const tokens = await client.getAccountTokens('account-id');
@@ -207,6 +218,24 @@ await client.upsertAccountAISettings({
   openai_api_key: 'sk-...',
   anthropic_api_key: 'sk-ant-...'
 });
+```
+
+### AI Prompt Request Log
+
+Retrieve the account's AI prompt-request history with optional filters and pagination.
+
+```typescript
+const log = await client.listPromptRequests({
+  provider: 'openai',
+  status: 'success',
+  search: 'reminder',
+  limit: 25,
+  offset: 0,
+});
+// log.data = { requests: PromptRequest[], total, limit, offset }
+for (const req of log.data.requests) {
+  console.log(req.model, req.total_tokens, req.estimated_cost_usd, req.status);
+}
 ```
 
 ### Managing Features
@@ -568,6 +597,47 @@ for (const suggestion of result.suggestions) {
 }
 ```
 
+### Recommending Send Times
+
+Recommend suitable future send times for a message given sender/recipient time zones, working hours, quiet hours, weekends, priority, and coverage rules. The engine is deterministic and does not send the message or create a job:
+
+```typescript
+const result = await client.sendTimeSuggestions({
+  sender: { id: 'user_123', timezone: 'America/Toronto' },
+  recipients: [
+    { id: 'user_456', timezone: 'America/Los_Angeles', role: 'primary' },
+  ],
+  message: { priority: 'normal' },
+});
+
+for (const suggestion of result.suggestions) {
+  console.log(suggestion.send_at, suggestion.score, suggestion.label);
+}
+```
+
+### Scheduling from a Prompt
+
+Turn a natural-language prompt into actually-scheduled jobs in one call. The server runs the prompt pipeline (intent guardrail + generation), resolves or creates a project, picks the executor whose `description`/`tags` best match the prompt (or uses a pinned `executorId` / the account's only executor), and creates the jobs synchronously:
+
+```typescript
+const result = await client.scheduleFromPrompt({
+  prompt: 'Remind the sales team every Monday at 9am to review the pipeline',
+  channels: ['email'],
+  createdBy: 'victor',
+  // Optional: pin a project or executor, otherwise they are resolved/created for you.
+  // project: { name: 'Sales reminders' },
+  // executorId: 3,
+});
+
+console.log(
+  `project ${result.project.id} (created=${result.projectCreated}), ` +
+  `executor ${result.executor.id} matched by ${result.executorMatchedBy}, ` +
+  `${result.jobs.length} jobs created`
+);
+```
+
+Executor selection uses each executor's `description` and `tags` (set them on `createExecutor` / `updateExecutor`). When the account has more than one executor and no `executorId` is pinned, the model picks the best match; if it cannot confidently match, the call throws with a `409` error (pin an `executorId` or refine descriptions/tags). A prompt rejected by the intent guardrail throws a `422` error.
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
@@ -643,7 +713,8 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/executors/*`
 - `/api/v1/async-tasks/*`
 - `/api/v1/executions`
-- `/api/v1/prompt` (AI prompt endpoint)
+- `/api/v1/ai/prompt` (AI prompt endpoint)
+- `/api/v1/ai/schedule` (prompt-to-scheduled-jobs endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 
@@ -668,7 +739,7 @@ const credential = await client.createCredential(
 
 ## Credits and AI Features
 
-The AI prompt endpoint (`/api/v1/prompt`) requires:
+The AI prompt endpoint (`/api/v1/ai/prompt`) requires:
 - **Credits**: 1 credit per prompt execution
 - **Authentication**: Valid API Key + Secret credentials
 - **Account ID**: Required header for credit deduction

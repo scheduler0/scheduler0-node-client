@@ -30,6 +30,10 @@ export interface AccountCreateRequestBody {
   name: string;
 }
 
+export interface AccountUpdateRequestBody {
+  name: string;
+}
+
 export interface AccountResponse {
   success: boolean;
   data: Account;
@@ -68,6 +72,50 @@ export interface AccountExecutionCountIncreaseResponse {
   success: boolean;
   data: {
     newExecutionCount: number;
+  };
+}
+
+// Remaining monthly AI classify-request quota for an account.
+export interface AccountClassifyRequestsCount {
+  id: number;
+  accountId: number;
+  requestCount: number;
+  dateCreated: string;
+  dateModified: string;
+  nextResetDate: string;
+}
+
+export interface AccountClassifyCountResponse {
+  success: boolean;
+  data: AccountClassifyRequestsCount;
+}
+
+export interface AccountClassifyCountIncreaseResponse {
+  success: boolean;
+  data: {
+    newClassifyCount: number;
+  };
+}
+
+// Remaining monthly AI prompt-request quota for an account.
+export interface AccountPromptRequestsCount {
+  id: number;
+  accountId: number;
+  requestCount: number;
+  dateCreated: string;
+  dateModified: string;
+  nextResetDate: string;
+}
+
+export interface AccountPromptCountResponse {
+  success: boolean;
+  data: AccountPromptRequestsCount;
+}
+
+export interface AccountPromptCountIncreaseResponse {
+  success: boolean;
+  data: {
+    newPromptCount: number;
   };
 }
 
@@ -236,6 +284,13 @@ export interface Executor {
   id: number;
   accountId: number;
   name: string;
+  /**
+   * Free-text description of what this executor does. Used by the /ai/schedule
+   * endpoint to match an executor to a prompt's purpose and channels.
+   */
+  description?: string;
+  /** Short labels describing the executor's purpose/channels (e.g. "email", "slack"). */
+  tags?: string[];
   type: 'cloud_function' | 'webhook_url';
   region?: string;
   cloudProvider?: string;
@@ -267,6 +322,8 @@ export interface ExecutorResponse {
 
 export interface ExecutorCreateRequestBody {
   name?: string;
+  description?: string;
+  tags?: string[];
   type?: 'cloud_function' | 'webhook_url';
   region?: string;
   cloudProvider?: string;
@@ -281,6 +338,8 @@ export interface ExecutorCreateRequestBody {
 
 export interface ExecutorUpdateRequestBody {
   name?: string;
+  description?: string;
+  tags?: string[];
   type?: 'cloud_function' | 'webhook_url';
   region?: string;
   cloudProvider?: string;
@@ -536,6 +595,47 @@ export interface AIModelsResponse {
   data: Record<string, ModelInfo[]>;
 }
 
+// AI Prompt Request Log Types
+// A single persisted AI prompt execution (mirrors the AccountPromptRequest server model).
+export interface PromptRequest {
+  id: number;
+  account_id: number;
+  prompt: string;
+  provider: string;
+  model: string;
+  output: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  duration_ms: number;
+  estimated_cost_usd: number;
+  status: string;
+  error?: string;
+  date_created: string;
+}
+
+export interface ListPromptRequestsParams {
+  provider?: string;
+  model?: string;
+  status?: string;
+  search?: string;
+  start?: string; // RFC3339
+  end?: string; // RFC3339
+  order?: string; // ASC or DESC
+  limit?: number;
+  offset?: number;
+}
+
+export interface PromptRequestsResponse {
+  success: boolean;
+  data: {
+    requests: PromptRequest[];
+    total: number;
+    limit: number;
+    offset: number;
+  };
+}
+
 // AI Prompt Types
 export interface PromptJobRequest {
   prompt: string;
@@ -594,6 +694,44 @@ export interface ClassifyPromptRequest {
   locale?: string;
 }
 
+// Schedule-from-prompt Types (POST /ai/schedule)
+export interface ScheduleProjectInput {
+  name?: string;
+  description?: string;
+}
+
+export interface SchedulePromptRequest {
+  prompt: string;
+  purposes?: string[];
+  events?: string[];
+  recipients?: string[];
+  channels?: string[];
+  timezone?: string;
+  locale?: string;
+  /** Reuse an existing project. Takes precedence over `project`. */
+  projectId?: number;
+  /** Create-or-reuse a project by name when `projectId` is absent. */
+  project?: ScheduleProjectInput;
+  /** Pin a specific executor and skip LLM matching. */
+  executorId?: number;
+  /** Required; stamped on the created project and jobs. */
+  createdBy: string;
+}
+
+export interface ScheduleResult {
+  classification?: IntentClassification;
+  project: Project;
+  projectCreated: boolean;
+  executor: Executor;
+  /** One of "pinned" | "only" | "llm". */
+  executorMatchedBy: string;
+  /** The model's rationale when matched by "llm". */
+  executorMatchReason?: string;
+  jobs: Job[];
+  provider?: string;
+  model?: string;
+}
+
 // Conversation Suggestions Types
 export interface SuggestionParticipant {
   id?: string;
@@ -644,6 +782,127 @@ export interface AnalyzeSuggestionsResult {
   obligations: Record<string, any>[];
   warnings: Record<string, any>[];
   engine?: Record<string, any>;
+}
+
+// Send-Time Suggestions Types
+// The engine is deterministic scheduling/time-zone math (no LLM). All keys are
+// snake_case to match the API contract.
+
+export interface SendTimeWorkingHours {
+  days?: string[];
+  start?: string;
+  end?: string;
+}
+
+export interface SendTimeQuietHours {
+  start?: string;
+  end?: string;
+}
+
+export interface SendTimeParticipant {
+  id?: string;
+  display_name?: string;
+  timezone: string;
+  role?: string;
+  working_hours?: SendTimeWorkingHours;
+  quiet_hours?: SendTimeQuietHours;
+}
+
+export interface SendTimeMessage {
+  channel?: string;
+  priority?: string;
+  intent?: string;
+  text?: string;
+  estimated_attention?: string;
+}
+
+export interface SendTimeConstraints {
+  earliest_send_at?: string;
+  latest_send_at?: string;
+  minimum_delay_seconds?: number;
+  working_hours_only?: boolean;
+  avoid_weekends?: boolean;
+  avoid_holidays?: boolean;
+  respect_quiet_hours?: boolean;
+  require_calendar_free?: boolean;
+}
+
+export interface SendTimeWindow {
+  start: string;
+  end: string;
+}
+
+export interface SendTimePreferences {
+  preferred_recipient_windows?: SendTimeWindow[];
+  avoid_recipient_windows?: SendTimeWindow[];
+  prefer_sender_recipient_overlap?: boolean;
+}
+
+export interface SendTimeGroupPolicy {
+  strategy?: string;
+  minimum_recipient_coverage?: number;
+}
+
+export interface SendTimeOptions {
+  reference_time?: string;
+  suggestion_count?: number;
+  candidate_interval_minutes?: number;
+  locale?: string;
+  include_score_breakdown?: boolean;
+  include_rejected_summary?: boolean;
+  search_horizon_days?: number;
+  evaluate_send_now?: boolean;
+  diversify_suggestions?: boolean;
+  minimum_suggestion_spacing_minutes?: number;
+}
+
+export interface SendTimeHolidayPolicy {
+  country?: string;
+  region?: string;
+  calendar_id?: string;
+  dates?: string[];
+}
+
+export interface SendTimeBusyInterval {
+  start: string;
+  end: string;
+}
+
+export interface SendTimeAvailability {
+  participant_id: string;
+  busy_intervals?: SendTimeBusyInterval[];
+}
+
+export interface SendTimeSuggestionsRequest {
+  sender?: SendTimeParticipant;
+  recipients: SendTimeParticipant[];
+  message?: SendTimeMessage;
+  constraints?: SendTimeConstraints;
+  preferences?: SendTimePreferences;
+  group_policy?: SendTimeGroupPolicy;
+  options?: SendTimeOptions;
+  holiday_policy?: SendTimeHolidayPolicy;
+  availability?: SendTimeAvailability[];
+  metadata?: Record<string, any>;
+}
+
+/**
+ * The send-time engine's response. The top-level fields are typed; individual
+ * suggestions and the search/send_now blocks carry a rich, evolving shape, so
+ * they are typed loosely.
+ */
+export interface SendTimeSuggestionsResult {
+  request_id?: string;
+  reference_time?: string;
+  policy?: Record<string, any>;
+  engine?: Record<string, any>;
+  suggestions: Record<string, any>[];
+  search?: Record<string, any>;
+  rejected_summary?: Record<string, number>;
+  no_suggestion?: Record<string, any>;
+  send_now?: Record<string, any>;
+  warnings: Record<string, any>[];
+  metadata?: Record<string, any>;
 }
 
 // Execution Analytics Types
