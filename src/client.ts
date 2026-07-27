@@ -41,6 +41,8 @@ import {
   ExecutorResponse,
   PaginatedExecutorsResponse,
   ListExecutorsParams,
+  TestInvocationRequestBody,
+  TestInvocationResponse,
   JobCreateRequestBody,
   JobUpdateRequestBody,
   JobDeleteRequestBody,
@@ -504,6 +506,33 @@ export class Client {
 
   async deleteExecutor(id: string, body: ExecutorDeleteRequestBody, accountIdOverride?: string): Promise<void> {
     return this.request<void>('DELETE', `/executors/${id}`, body, undefined, accountIdOverride);
+  }
+
+  /**
+   * Test-invoke an executor with a synthetic job.
+   *
+   * Fires a synthetic ("test") job through an existing executor immediately and
+   * synchronously, so a scheduled job can be exercised without waiting for its
+   * cron spec or start date to elapse. The invocation has no side effects: no
+   * job is created, no execution log is written, and nothing is rescheduled.
+   *
+   * The body is optional (omit it to invoke with a default synthetic job). The
+   * request resolves with HTTP 200 once the invocation completes; whether the
+   * target accepted the job is reported in `data.success`. Local (pull-based)
+   * executors cannot be test-invoked and reject with a 400 error.
+   */
+  async testInvokeExecutor(
+    id: string,
+    body?: TestInvocationRequestBody,
+    accountIdOverride?: string
+  ): Promise<TestInvocationResponse> {
+    return this.request<TestInvocationResponse>(
+      'POST',
+      `/executors/${id}/test-invoke`,
+      body,
+      undefined,
+      accountIdOverride
+    );
   }
 
   // Project Methods

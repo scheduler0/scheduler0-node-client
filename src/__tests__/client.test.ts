@@ -1038,6 +1038,50 @@ describe('Client', () => {
         })
       );
     });
+
+    it('should test-invoke an executor', async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          test: true,
+          executorId: 1,
+          executorType: 'webhook_url',
+          success: true,
+          startedAt: '2024-01-15T02:00:00Z',
+          finishedAt: '2024-01-15T02:00:00.142Z',
+          durationMs: 142,
+          payload: { job: { spec: '0 2 * * *' }, lastExecutionStatus: 'scheduled' },
+        },
+      };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+        text: async () => JSON.stringify(mockResponse),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const client = Client.newAPIClientWithAccount(
+        baseURL,
+        'v1',
+        apiKey,
+        apiSecret,
+        accountId
+      );
+      const result = await client.testInvokeExecutor('1', {
+        job: { spec: '0 2 * * *', data: '{}', timezone: 'UTC', retryMax: 2 },
+        age: '24h',
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(result.data.success).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/executors/1/test-invoke'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
   });
 
   describe('Project Methods', () => {

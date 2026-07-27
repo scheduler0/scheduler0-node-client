@@ -374,6 +374,46 @@ export interface ListExecutorsParams {
   orderByDirection?: 'asc' | 'desc';
 }
 
+// Test invocation types
+// Optional body for testInvokeExecutor. All fields are optional; an empty body
+// invokes the executor with a default synthetic job. Server-managed fields on
+// `job` (id, accountId, executorId, dateCreated, lastExecutionDate) are ignored
+// and overridden by the server.
+export interface TestInvocationRequestBody {
+  // Standard job attributes to include in the invocation payload.
+  job?: Partial<Job>;
+  // How old the synthetic job entry should appear, as a Go duration string
+  // (e.g. "24h", "1h30m", "15m"). Sets the job's dateCreated and
+  // lastExecutionDate to now-age.
+  age?: string;
+  // The moment the job is treated as executing at (RFC3339). Becomes the
+  // payload's lastExecutionDateTime. Defaults to now.
+  executionTime?: string;
+}
+
+export interface JobInvocationPayload {
+  job: Job;
+  lastExecutionDateTime?: string;
+  lastExecutionStatus?: 'scheduled' | 'success' | 'failed';
+}
+
+export interface TestInvocationResult {
+  test: boolean;
+  executorId: number;
+  executorType: string;
+  success: boolean;
+  error?: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  payload: JobInvocationPayload;
+}
+
+export interface TestInvocationResponse {
+  success: boolean;
+  data: TestInvocationResult;
+}
+
 // Job Types
 export interface Job {
   id: number;
