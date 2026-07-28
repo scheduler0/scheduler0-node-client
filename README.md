@@ -7,8 +7,10 @@ A Node.js/TypeScript client library for interacting with the [Scheduler0 API](ht
 - **Account Management** *(Self-hosted only)*
   - Create accounts
   - Get account details
+  - Rename/update accounts
   - Add/remove features from accounts
   - Get/increase the monthly execution count
+  - Get/increase the monthly AI classify-request and prompt-request quotas
   - Get/add platform tokens
   - Configure per-account AI provider settings (BYOK)
   - *Note: These APIs are for users running Scheduler0 in their own infrastructure who need granular control over team access and resource usage.*
@@ -40,6 +42,7 @@ A Node.js/TypeScript client library for interacting with the [Scheduler0 API](ht
   - Get executor details
   - Update executors
   - Delete executors
+  - Test-invoke an executor with a synthetic job
 
 - **Local Executors Management**
   - Register local executors
@@ -69,6 +72,10 @@ A Node.js/TypeScript client library for interacting with the [Scheduler0 API](ht
   - Create job configurations from natural language prompts
   - AI generates cron expressions, scheduling, and job metadata
   - Supports purposes, events, recipients, and channels
+  - Schedule jobs directly from a prompt in one call (`scheduleFromPrompt`)
+  - Classify a prompt's intent without invoking a model (`classifyPrompt`)
+  - Analyze conversations for suggestions and recommend send times (`analyzeSuggestions` / `sendTimeSuggestions`)
+  - Retrieve the account's AI prompt-request log (`listPromptRequests`)
 
 - **Async Tasks Management** *(Self-hosted only)*
   - Get async task status by request ID
@@ -105,6 +112,17 @@ const client = Client.newAPIClientWithAccount(
   'your-api-key',           // API Key
   'your-api-secret',        // API Secret
   '123'                     // Account ID
+);
+```
+
+If you do not have a default Account ID (for example, when you supply the account per request via a parameter override), use `newAPIClient`, which omits the Account ID:
+
+```typescript
+const client = Client.newAPIClient(
+  'http://localhost:7070',  // Base URL
+  'v1',                     // API Version
+  'your-api-key',           // API Key
+  'your-api-secret'         // API Secret
 );
 ```
 
@@ -588,7 +606,6 @@ const classification = await client.classifyPrompt({ prompt: 'What is Kubernetes
 console.log('Decision:', classification.decision); // 'reject'
 console.log('Reason:', classification.reason);     // 'informational_question_not_schedule_request'
 ```
-```
 
 ### Analyzing a Conversation for Suggestions
 
@@ -681,6 +698,7 @@ console.log(`Raft State: ${health.data.raftStats.state}`);
 ### Executor Types
 - `"webhook_url"` - HTTP webhook executor
 - `"cloud_function"` - Cloud function executor
+- `"local"` - Local (pull-based) executor; runs jobs on a machine you control (set by the server when registering via `registerLocalExecutor`)
 
 ### Webhook Methods
 - `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`
@@ -724,8 +742,14 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/executors/*`
 - `/api/v1/async-tasks/*`
 - `/api/v1/executions`
+- `/api/v1/local-executors/*`
 - `/api/v1/ai/prompt` (AI prompt endpoint)
+- `/api/v1/ai/prompt/classify` (prompt intent classifier)
 - `/api/v1/ai/schedule` (prompt-to-scheduled-jobs endpoint)
+- `/api/v1/ai/suggestions/analyze` (conversation suggestions)
+- `/api/v1/ai/suggestions/time` (send-time suggestions)
+- `/api/v1/ai/settings` (per-account AI provider settings)
+- `/api/v1/ai/prompt-requests` (AI prompt-request log)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 
