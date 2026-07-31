@@ -166,16 +166,16 @@ describe('Client', () => {
       );
     });
 
-    it('should get account classify count', async () => {
+    it('should get account AI usage', async () => {
       const mockResponse = {
         success: true,
         data: {
-          id: 1,
           accountId: 123,
-          requestCount: 950,
-          dateCreated: '2025-01-01T00:00:00Z',
-          dateModified: '2025-01-01T00:00:00Z',
+          periodStart: '2025-01-01T00:00:00Z',
           nextResetDate: '2025-02-01T00:00:00Z',
+          prompt: { limit: 1000, used: 50, remaining: 950 },
+          classify: { limit: 1000, used: 40, remaining: 960 },
+          estimatedCostUsd: 1.23,
         },
       };
 
@@ -188,91 +188,15 @@ describe('Client', () => {
       });
 
       const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
-      const result = await client.getAccountClassifyCount('123');
+      const result = await client.getAIUsage('123');
 
       expect(result).toEqual(mockResponse);
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/accounts/123/classify-count'),
+        expect.stringContaining('/api/v1/accounts/123/ai/usage'),
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({ 'X-Account-ID': '123' }),
         })
-      );
-    });
-
-    it('should increase account classify count', async () => {
-      const mockResponse = { success: true, data: { newClassifyCount: 1000 } };
-
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => mockResponse,
-        text: async () => JSON.stringify(mockResponse),
-        headers: new Headers({ 'content-type': 'application/json' }),
-      });
-
-      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
-      const result = await client.increaseAccountClassifyCount('123', 50);
-
-      expect(result).toEqual(mockResponse);
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/accounts/123/classify-count'),
-        expect.objectContaining({ method: 'PUT' })
-      );
-    });
-
-    it('should get account prompt count', async () => {
-      const mockResponse = {
-        success: true,
-        data: {
-          id: 1,
-          accountId: 123,
-          requestCount: 800,
-          dateCreated: '2025-01-01T00:00:00Z',
-          dateModified: '2025-01-01T00:00:00Z',
-          nextResetDate: '2025-02-01T00:00:00Z',
-        },
-      };
-
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => mockResponse,
-        text: async () => JSON.stringify(mockResponse),
-        headers: new Headers({ 'content-type': 'application/json' }),
-      });
-
-      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
-      const result = await client.getAccountPromptCount('123');
-
-      expect(result).toEqual(mockResponse);
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/accounts/123/prompt-count'),
-        expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({ 'X-Account-ID': '123' }),
-        })
-      );
-    });
-
-    it('should increase account prompt count', async () => {
-      const mockResponse = { success: true, data: { newPromptCount: 900 } };
-
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => mockResponse,
-        text: async () => JSON.stringify(mockResponse),
-        headers: new Headers({ 'content-type': 'application/json' }),
-      });
-
-      const client = Client.newAPIClient(baseURL, 'v1', apiKey, apiSecret);
-      const result = await client.increaseAccountPromptCount('123', 100);
-
-      expect(result).toEqual(mockResponse);
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/accounts/123/prompt-count'),
-        expect.objectContaining({ method: 'PUT' })
       );
     });
 

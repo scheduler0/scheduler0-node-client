@@ -4,10 +4,7 @@ import {
   AccountResponse,
   AccountExecutionCountResponse,
   AccountExecutionCountIncreaseResponse,
-  AccountClassifyCountResponse,
-  AccountClassifyCountIncreaseResponse,
-  AccountPromptCountResponse,
-  AccountPromptCountIncreaseResponse,
+  AIUsageResponse,
   AccountTokensResponse,
   AccountTokensAddResponse,
   AccountAISettings,
@@ -282,22 +279,13 @@ export class Client {
     return this.request<AccountExecutionCountIncreaseResponse>('PUT', `/accounts/${accountId}/execution-count`, { count });
   }
 
-  // Remaining monthly AI classify-request quota for an account.
-  async getAccountClassifyCount(accountId: string): Promise<AccountClassifyCountResponse> {
-    return this.request<AccountClassifyCountResponse>('GET', `/accounts/${accountId}/classify-count`, undefined, undefined, accountId);
-  }
-
-  async increaseAccountClassifyCount(accountId: string, count: number): Promise<AccountClassifyCountIncreaseResponse> {
-    return this.request<AccountClassifyCountIncreaseResponse>('PUT', `/accounts/${accountId}/classify-count`, { count }, undefined, accountId);
-  }
-
-  // Remaining monthly AI prompt-request quota for an account.
-  async getAccountPromptCount(accountId: string): Promise<AccountPromptCountResponse> {
-    return this.request<AccountPromptCountResponse>('GET', `/accounts/${accountId}/prompt-count`, undefined, undefined, accountId);
-  }
-
-  async increaseAccountPromptCount(accountId: string, count: number): Promise<AccountPromptCountIncreaseResponse> {
-    return this.request<AccountPromptCountIncreaseResponse>('PUT', `/accounts/${accountId}/prompt-count`, { count }, undefined, accountId);
+  // Log-derived AI request usage for the account's current period: prompt and classify
+  // limits (feature-derived), successful requests used, remaining allowance, the summed
+  // estimated prompt cost in USD, and the period boundary. This is the single source of
+  // truth for AI credit usage — it replaces the removed classify-count/prompt-count
+  // endpoints.
+  async getAIUsage(accountId: string): Promise<AIUsageResponse> {
+    return this.request<AIUsageResponse>('GET', `/accounts/${accountId}/ai/usage`, undefined, undefined, accountId);
   }
 
   async addFeatureToAccount(accountId: string, body: FeatureRequest): Promise<FeatureRequestResponse> {

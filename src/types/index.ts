@@ -75,48 +75,28 @@ export interface AccountExecutionCountIncreaseResponse {
   };
 }
 
-// Remaining monthly AI classify-request quota for an account.
-export interface AccountClassifyRequestsCount {
-  id: number;
+// Log-derived view of one AI quota dimension (prompt or classify) for the current period.
+export interface AIUsageDimension {
+  limit: number;
+  used: number;
+  remaining: number;
+}
+
+// Authoritative, log-derived AI request usage for an account's current period. Replaces the
+// removed classify-count/prompt-count models.
+export interface AIUsage {
   accountId: number;
-  requestCount: number;
-  dateCreated: string;
-  dateModified: string;
+  periodStart: string;
   nextResetDate: string;
+  prompt: AIUsageDimension;
+  classify: AIUsageDimension;
+  // Sum of estimated prompt-request USD cost for the current billing period (all statuses).
+  estimatedCostUsd: number;
 }
 
-export interface AccountClassifyCountResponse {
+export interface AIUsageResponse {
   success: boolean;
-  data: AccountClassifyRequestsCount;
-}
-
-export interface AccountClassifyCountIncreaseResponse {
-  success: boolean;
-  data: {
-    newClassifyCount: number;
-  };
-}
-
-// Remaining monthly AI prompt-request quota for an account.
-export interface AccountPromptRequestsCount {
-  id: number;
-  accountId: number;
-  requestCount: number;
-  dateCreated: string;
-  dateModified: string;
-  nextResetDate: string;
-}
-
-export interface AccountPromptCountResponse {
-  success: boolean;
-  data: AccountPromptRequestsCount;
-}
-
-export interface AccountPromptCountIncreaseResponse {
-  success: boolean;
-  data: {
-    newPromptCount: number;
-  };
+  data: AIUsage;
 }
 
 // Feature Types
