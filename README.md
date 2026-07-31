@@ -198,13 +198,9 @@ await client.updateAccount('account-id', { name: 'New Name' });
 const count = await client.getAccountExecutionCount('account-id');
 const increased = await client.increaseAccountExecutionCount('account-id', 10000);
 
-// Get / increase the account's monthly AI classify-request quota
-const classify = await client.getAccountClassifyCount('account-id');
-const classifyBumped = await client.increaseAccountClassifyCount('account-id', 1000);
-
-// Get / increase the account's monthly AI prompt-request quota
-const prompt = await client.getAccountPromptCount('account-id');
-const promptBumped = await client.increaseAccountPromptCount('account-id', 1000);
+// Get the account's log-derived AI usage for the current period
+// (prompt + classify limits/used/remaining, and estimated cost in USD)
+const usage = await client.getAIUsage('account-id');
 
 // Get / add platform tokens
 const tokens = await client.getAccountTokens('account-id');
