@@ -1470,6 +1470,8 @@ describe('Client', () => {
           service: 'service',
           state: 2,
           dateCreated: '2025-01-01T00:00:00Z',
+          accountId: 1,
+          dateModified: '2025-01-01T00:00:00Z',
         },
       };
 
