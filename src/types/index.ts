@@ -140,7 +140,6 @@ export interface Credential {
   plaintextSecret?: string;
   dateCreated: string;
   dateModified?: string;
-  dateDeleted?: string;
   createdBy?: string;
   modifiedBy?: string;
   deletedBy?: string;
@@ -271,7 +270,7 @@ export interface Executor {
   description?: string;
   /** Short labels describing the executor's purpose/channels (e.g. "email", "slack"). */
   tags?: string[];
-  type: 'cloud_function' | 'webhook_url';
+  type: 'cloud_function' | 'webhook_url' | 'local';
   region?: string;
   cloudProvider?: string;
   cloudResourceUrl?: string;
@@ -287,9 +286,14 @@ export interface Executor {
   /** See cloudApiKey: only returned once in the createExecutor response. */
   webhookSecret?: string;
   webhookMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  /** Used by local executors (type=local): the command the CLI runs locally on each trigger. */
+  command?: string;
+  /** Used by local executors (type=local): the working directory for `command`. */
+  workingDir?: string;
+  /** When true, jobs sharing this executor and the same fire time are delivered in one aggregated call. */
+  payloadAggregation?: boolean;
   dateCreated: string;
   dateModified?: string;
-  dateDeleted?: string;
   createdBy?: string;
   modifiedBy?: string;
   deletedBy?: string;
@@ -304,7 +308,7 @@ export interface ExecutorCreateRequestBody {
   name?: string;
   description?: string;
   tags?: string[];
-  type?: 'cloud_function' | 'webhook_url';
+  type?: 'cloud_function' | 'webhook_url' | 'local';
   region?: string;
   cloudProvider?: string;
   cloudResourceUrl?: string;
@@ -313,6 +317,9 @@ export interface ExecutorCreateRequestBody {
   webhookUrl?: string;
   webhookSecret?: string;
   webhookMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  command?: string;
+  workingDir?: string;
+  payloadAggregation?: boolean;
   createdBy: string;
 }
 
@@ -320,7 +327,7 @@ export interface ExecutorUpdateRequestBody {
   name?: string;
   description?: string;
   tags?: string[];
-  type?: 'cloud_function' | 'webhook_url';
+  type?: 'cloud_function' | 'webhook_url' | 'local';
   region?: string;
   cloudProvider?: string;
   cloudResourceUrl?: string;
@@ -329,6 +336,9 @@ export interface ExecutorUpdateRequestBody {
   webhookUrl?: string;
   webhookSecret?: string;
   webhookMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  command?: string;
+  workingDir?: string;
+  payloadAggregation?: boolean;
   modifiedBy: string;
 }
 
@@ -339,9 +349,12 @@ export interface ExecutorDeleteRequestBody {
 export interface PaginatedExecutorsResponse {
   success: boolean;
   data: {
-    total: number;
-    offset: number;
-    limit: number;
+    // The server omits these when zero (e.g. first page, or no results) — see
+    // models.PaginatedJobExecutor, which unlike its sibling paginated containers
+    // tags total/offset/limit with `omitempty`.
+    total?: number;
+    offset?: number;
+    limit?: number;
     executors: Executor[];
   };
 }
@@ -538,6 +551,8 @@ export interface AsyncTask {
   service: string;
   state: 0 | 1 | 2 | 3; // 0: Not Started, 1: In Progress, 2: Success, 3: Fail
   dateCreated: string;
+  accountId: number;
+  dateModified: string;
 }
 
 export interface AsyncTaskResponse {
@@ -985,7 +1000,7 @@ export interface LocalExecutorRegisterRequest {
   name: string;
   command: string;
   workingDir?: string;
-  createdBy?: string;
+  createdBy: string;
 }
 
 export interface LocalExecutorRegisterResponse {
