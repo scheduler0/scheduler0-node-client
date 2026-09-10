@@ -1032,3 +1032,52 @@ export interface ReportLocalExecutionsResponse {
   };
 }
 
+
+// Cluster Management Types
+// All cluster endpoints require the `admin` scope (or Basic/peer auth) and are
+// only meaningful when self-hosting Scheduler0.
+
+/** Envelope returned by the cluster membership/leadership operations. */
+export interface ClusterStatusResponse {
+  success: boolean;
+  data: {
+    status: string;
+  };
+}
+
+export interface ClusterNode {
+  nodeId?: number;
+  address?: string;
+  clientAddress?: string;
+  suffrage?: string;
+  [key: string]: unknown;
+}
+
+export interface ClusterListNodesResponse {
+  success: boolean;
+  data: ClusterNode[];
+}
+
+/** GET /cluster/dump/schedule-queue — raw schedule-queue items. */
+export interface ClusterScheduleQueueDumpResponse {
+  success: boolean;
+  data: unknown[];
+}
+
+/** GET /cluster/dump/job-executions-cache — keyed by job id. */
+export interface ClusterJobExecutionsCacheDumpResponse {
+  success: boolean;
+  data: Record<string, unknown>;
+}
+
+/** GET /cluster/dump/job-queues */
+export interface ClusterJobQueuesDumpResponse {
+  success: boolean;
+  data: unknown[];
+}
+
+/** GET /cluster/dump/job-queue-versions */
+export interface ClusterJobQueueVersionsDumpResponse {
+  success: boolean;
+  data: unknown[];
+}

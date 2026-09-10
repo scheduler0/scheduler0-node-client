@@ -66,6 +66,12 @@ import {
   SchedulePromptRequest,
   ScheduleResult,
   BackupRestoreResponse,
+  ClusterStatusResponse,
+  ClusterListNodesResponse,
+  ClusterScheduleQueueDumpResponse,
+  ClusterJobExecutionsCacheDumpResponse,
+  ClusterJobQueuesDumpResponse,
+  ClusterJobQueueVersionsDumpResponse,
   RestoreRequest,
   LocalExecutorRegisterRequest,
   LocalExecutorRegisterResponse,
@@ -958,6 +964,141 @@ export class Client {
   async restoreDatabase(fileName: string): Promise<BackupRestoreResponse> {
     const body: RestoreRequest = { filePath: fileName };
     return this.request<BackupRestoreResponse>('POST', '/cluster/restore', body);
+  }
+
+  // Cluster Management Methods
+  //
+  // These operate on Raft cluster membership and are only meaningful when
+  // self-hosting Scheduler0. They require a credential carrying the `admin`
+  // scope, or Basic/peer authentication.
+
+  /**
+   * Remove this node from Raft membership and unregister it from etcd.
+   * POST /cluster/remove-self
+   */
+  async removeSelfFromCluster(): Promise<ClusterStatusResponse> {
+    return this.request<ClusterStatusResponse>('POST', '/cluster/remove-self');
+  }
+
+  /**
+   * Ensure this node is registered in etcd and part of the Raft cluster.
+   * POST /cluster/add-self
+   */
+  async addSelfToCluster(): Promise<ClusterStatusResponse> {
+    return this.request<ClusterStatusResponse>('POST', '/cluster/add-self');
+  }
+
+  /**
+   * Force a rebuild of the Raft cluster. Should only be called on the seed node.
+   * POST /cluster/force-rebuild?seedNodeId=
+   */
+  async forceRebuildCluster(seedNodeId: string | number): Promise<ClusterStatusResponse> {
+    return this.request<ClusterStatusResponse>('POST', '/cluster/force-rebuild', undefined, {
+      seedNodeId,
+    });
+  }
+
+  /**
+   * Clear local Raft state on this node. The server responds before exiting its
+   * process, so the connection is expected to drop immediately afterwards.
+   * POST /cluster/reset-raft
+   */
+  async resetRaft(): Promise<ClusterStatusResponse> {
+    return this.request<ClusterStatusResponse>('POST', '/cluster/reset-raft');
+  }
+
+  /**
+   * Remove a node from the Raft cluster. Leader-only; returns 403 otherwise.
+   * POST /cluster/remove-node?nodeId=
+   */
+  async removeClusterNode(nodeId: string | number): Promise<ClusterStatusResponse> {
+    return this.request<ClusterStatusResponse>('POST', '/cluster/remove-node', undefined, { nodeId });
+  }
+
+  /**
+   * Add a node to the Raft cluster. Leader-only; returns 403 otherwise.
+   * POST /cluster/add-node?nodeId=&nodeAddress=&clientAddress=
+   */
+  async addClusterNode(
+    nodeId: string | number,
+    nodeAddress: string,
+    clientAddress: string
+  ): Promise<ClusterStatusResponse> {
+    return this.request<ClusterStatusResponse>('POST', '/cluster/add-node', undefined, {
+      nodeId,
+      nodeAddress,
+      clientAddress,
+    });
+  }
+
+  /**
+   * Promote a non-voter node to voter. Leader-only; returns 403 otherwise.
+   * POST /cluster/promote-node?nodeId=
+   */
+  async promoteClusterNode(nodeId: string | number): Promise<ClusterStatusResponse> {
+    return this.request<ClusterStatusResponse>('POST', '/cluster/promote-node', undefined, { nodeId });
+  }
+
+  /**
+   * Demote a voter node to non-voter. Leader-only; returns 403 otherwise.
+   * POST /cluster/demote-node?nodeId=
+   */
+  async demoteClusterNode(nodeId: string | number): Promise<ClusterStatusResponse> {
+    return this.request<ClusterStatusResponse>('POST', '/cluster/demote-node', undefined, { nodeId });
+  }
+
+  /**
+   * Transfer Raft leadership to another node. Leader-only; returns 403 otherwise.
+   * POST /cluster/transfer-leadership
+   */
+  async transferClusterLeadership(): Promise<ClusterStatusResponse> {
+    return this.request<ClusterStatusResponse>('POST', '/cluster/transfer-leadership');
+  }
+
+  /**
+   * List all nodes in the Raft cluster.
+   * GET /cluster/list-nodes
+   */
+  async listClusterNodes(): Promise<ClusterListNodesResponse> {
+    return this.request<ClusterListNodesResponse>('GET', '/cluster/list-nodes');
+  }
+
+  /**
+   * Dump the in-memory schedule queue (diagnostics).
+   * GET /cluster/dump/schedule-queue
+   */
+  async dumpScheduleQueue(): Promise<ClusterScheduleQueueDumpResponse> {
+    return this.request<ClusterScheduleQueueDumpResponse>('GET', '/cluster/dump/schedule-queue');
+  }
+
+  /**
+   * Dump the job-executions cache, keyed by job id (diagnostics).
+   * GET /cluster/dump/job-executions-cache
+   */
+  async dumpJobExecutionsCache(): Promise<ClusterJobExecutionsCacheDumpResponse> {
+    return this.request<ClusterJobExecutionsCacheDumpResponse>(
+      'GET',
+      '/cluster/dump/job-executions-cache'
+    );
+  }
+
+  /**
+   * Dump all job queues (diagnostics).
+   * GET /cluster/dump/job-queues
+   */
+  async dumpJobQueues(): Promise<ClusterJobQueuesDumpResponse> {
+    return this.request<ClusterJobQueuesDumpResponse>('GET', '/cluster/dump/job-queues');
+  }
+
+  /**
+   * Dump all job queue versions (diagnostics).
+   * GET /cluster/dump/job-queue-versions
+   */
+  async dumpJobQueueVersions(): Promise<ClusterJobQueueVersionsDumpResponse> {
+    return this.request<ClusterJobQueueVersionsDumpResponse>(
+      'GET',
+      '/cluster/dump/job-queue-versions'
+    );
   }
 
   // Local Executor Methods
