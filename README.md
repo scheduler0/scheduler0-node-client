@@ -1,90 +1,9 @@
 # Scheduler0 Node.js Client
 
-A Node.js/TypeScript client library for interacting with the [Scheduler0 API](https://scheduler0.com). This client provides a convenient way to manage accounts, credentials, executions, executors, projects, jobs, features, create jobs from AI prompts, and monitor the health of your Scheduler0 cluster.
+Node.js/TypeScript client for the [Scheduler0](https://scheduler0.com) HTTP API. It covers every public `/api/v1` route: projects, jobs, executors, local executors, credentials, executions, async tasks, features, the AI endpoints, and the self-hosting account/cluster endpoints.
 
-## Features
-
-- **Account Management** *(Self-hosted only)*
-  - Create accounts
-  - Get account details
-  - Rename/update accounts
-  - Add/remove features from accounts
-  - Get/increase the monthly execution count
-  - Get/increase the monthly AI classify-request and prompt-request quotas
-  - Get/add platform tokens
-  - Configure per-account AI provider settings (BYOK)
-  - *Note: These APIs are for users running Scheduler0 in their own infrastructure who need granular control over team access and resource usage.*
-
-- **Feature Management** *(Self-hosted only)*
-  - List available features
-  - Add/remove all features for an account
-  - *Note: These APIs are for users running Scheduler0 in their own infrastructure who need granular control over team access and resource usage.*
-
-- **Credentials Management**
-  - List credentials with pagination and ordering
-  - Create new credentials
-  - Get credential details
-  - Update credentials
-  - Delete credentials
-  - Archive credentials
-  - Rotate the server secret key
-
-- **Executions Management**
-  - List job executions with date filtering
-  - Filter by project ID and job ID
-  - View execution details and logs
-  - Date-range analytics and lifetime totals
-  - Clean up old execution logs
-
-- **Executors Management**
-  - List executors with pagination and ordering
-  - Create new executors (webhook, cloud function)
-  - Get executor details
-  - Update executors
-  - Delete executors
-  - Test-invoke an executor with a synthetic job
-
-- **Local Executors Management**
-  - Register local executors
-  - Pull assigned jobs for a local executor
-  - Report local execution results in batches
-
-- **Backup & Restore** *(Self-hosted only)*
-  - Start an online database backup
-  - Restore from a backup file
-
-- **Projects Management**
-  - List projects with pagination
-  - Create new projects
-  - Get project details
-  - Update projects
-  - Delete projects
-
-- **Jobs Management**
-  - List jobs with pagination and ordering
-  - Create new jobs with comprehensive scheduling options
-  - Batch create multiple jobs in a single request
-  - Get job details
-  - Update jobs
-  - Delete jobs
-
-- **AI-Powered Job Creation**
-  - Create job configurations from natural language prompts
-  - AI generates cron expressions, scheduling, and job metadata
-  - Supports purposes, events, recipients, and channels
-  - Schedule jobs directly from a prompt in one call (`scheduleFromPrompt`)
-  - Classify a prompt's intent without invoking a model (`classifyPrompt`)
-  - Analyze conversations for suggestions and recommend send times (`analyzeSuggestions` / `sendTimeSuggestions`)
-  - Retrieve the account's AI prompt-request log (`listPromptRequests`)
-
-- **Async Tasks Management** *(Self-hosted only)*
-  - Get async task status by request ID
-  - *Note: These APIs are for users running Scheduler0 in their own infrastructure who need granular control over team access and resource usage.*
-
-- **Health Monitoring**
-  - Check cluster health
-  - View raft statistics
-  - Monitor leader status
+- Documentation: [docs.scheduler0.com](https://docs.scheduler0.com)
+- API reference (OpenAPI): [api-reference.scheduler0.com](https://api-reference.scheduler0.com)
 
 ## Installation
 
@@ -92,727 +11,499 @@ A Node.js/TypeScript client library for interacting with the [Scheduler0 API](ht
 npm install @scheduler0/scheduler0-node-client
 ```
 
-## API Documentation
+Requires Node.js >= 18 (the client uses the global `fetch`). Type definitions are bundled.
 
-- **OpenAPI Specification**: [openapi.json](https://api-reference.scheduler0.com) - Complete API specification
+## Configuration and authentication
 
-## Authentication
-
-The Scheduler0 Node.js client supports multiple authentication methods:
-
-### 1. API Key + Secret Authentication (Default)
-Most endpoints require API Key and Secret authentication with an Account ID. These credentials are created through the credentials API:
+The constructor takes the base URL (no trailing path), the API version segment (`'v1'`), and auth options. There is no default base URL; the hosted API is `https://api.scheduler0.com`.
 
 ```typescript
 import { Client } from '@scheduler0/scheduler0-node-client';
 
-const client = Client.newAPIClientWithAccount(
-  'http://localhost:7070',  // Base URL
-  'v1',                     // API Version
-  'your-api-key',           // API Key
-  'your-api-secret',        // API Secret
-  '123'                     // Account ID
-);
+const client = new Client('https://api.scheduler0.com', 'v1', {
+  apiKey: process.env.SCHEDULER0_API_KEY!,
+  apiSecret: process.env.SCHEDULER0_API_SECRET!,
+  accountId: process.env.SCHEDULER0_ACCOUNT_ID!,
+});
 ```
 
-If you do not have a default Account ID (for example, when you supply the account per request via a parameter override), use `newAPIClient`, which omits the Account ID:
+Every request (except `healthcheck`) is sent with three headers: `X-API-Key`, `X-Secret-Key`, and `X-Account-ID`. The server requires all three and returns `401` when the account ID is missing or does not match the credential. Two factory methods are equivalent to the constructor:
 
 ```typescript
-const client = Client.newAPIClient(
-  'http://localhost:7070',  // Base URL
-  'v1',                     // API Version
-  'your-api-key',           // API Key
-  'your-api-secret'         // API Secret
+// Same as the constructor call above.
+const withAccount = Client.newAPIClientWithAccount(
+  'https://api.scheduler0.com',
+  'v1',
+  'your-api-key',
+  'your-api-secret',
+  '123'
 );
+
+// No default account ID. Every method that talks to the API accepts an
+// account ID (as a trailing `accountIdOverride` argument or an `accountId`
+// param) — you must supply it on each call or requests fail with 401.
+const withoutAccount = Client.newAPIClient(
+  'https://api.scheduler0.com',
+  'v1',
+  'your-api-key',
+  'your-api-secret'
+);
+const projects = await withoutAccount.listProjects({ accountId: 123, limit: 10, offset: 0 });
 ```
 
-### 2. Basic Authentication (Self-hosted Infrastructure)
-For users running Scheduler0 on their own infrastructure, you can authenticate using a username and password that was set during infrastructure setup. This is typically used for administrative operations and peer-to-peer communication:
+### Basic auth (self-hosting only)
+
+When you run Scheduler0 yourself, the operator username/password can be used instead of an API credential. The client then sends `Authorization: Basic …` and `X-Peer: cmd`. This is the bootstrap path for creating the first account and credential, and for cluster operations.
 
 ```typescript
-const client = Client.newBasicAuthClient(
-  'http://localhost:7070',  // Base URL
-  'v1',                     // API Version
-  'username',               // Username (set during infrastructure setup)
-  'password'                // Password (set during infrastructure setup)
-);
+const operator = Client.newBasicAuthClient('http://127.0.0.1:9091', 'v1', 'admin', 'admin');
 ```
 
-**Note**: Basic authentication is primarily for self-hosted deployments where you have configured username/password credentials during your infrastructure setup.
+### Scopes
 
-### 3. Options Pattern
-For more flexibility, use the options pattern:
+A credential carries `scopes: ('read' | 'write' | 'execute' | 'admin')[]`. Each request needs one of them; `admin` satisfies everything. A missing scope returns `403 credential missing required scope: <scope>`; an expired credential returns `401`.
+
+| Scope | Grants |
+|-------|--------|
+| `read` | All `GET`s: jobs, projects, credentials, executors, executions, async tasks, features, `ai/settings`, `ai/models`, `ai/prompt-requests`, `local-executors/{id}/jobs` |
+| `write` | `POST`/`PUT`/`DELETE` on jobs, projects, credentials, executors, `ai/settings`; registering local executors |
+| `execute` | `ai/prompt`, `ai/prompt/classify`, `ai/schedule`, `ai/suggestions/*`, `executions/cleanup-old-logs`, `executors/{id}/test-invoke`, `local-executors/{id}/executions` |
+| `admin` | `accounts/*`, `account/rotate-secret`, `cluster/*` (self-hosting). Only an admin credential or basic auth can grant `admin`. |
+
+## Responses and errors
+
+Every server response is an envelope `{ success: boolean, data: T }`. Most methods resolve with that envelope (for example `PaginatedJobsResponse` is `{ success, data: { total, offset, limit, jobs } }`). `204 No Content` responses resolve with an empty object.
+
+The AI methods `createJobFromPrompt`, `scheduleFromPrompt`, `analyzeSuggestions`, and `sendTimeSuggestions` return `data` directly, and `classifyPrompt` returns `data.classification`.
+
+On any `4xx`/`5xx` the client throws a plain `Error` whose message is `API error: <status> - <server message>`. There is no custom error class, no retry, no timeout, and no rate-limit handling; wrap calls yourself if you need those.
 
 ```typescript
-const client = new Client(
-  'http://localhost:7070',  // Base URL
-  'v1',                     // API Version
-  {
-    apiKey: 'api-key',
-    apiSecret: 'api-secret',
-    accountId: '123'
+try {
+  await client.getJob('42');
+} catch (err) {
+  if (err instanceof Error && err.message.startsWith('API error: 404')) {
+    // not found
+  } else {
+    throw err;
   }
-);
+}
 ```
 
-Or for basic authentication:
-
-```typescript
-const client = new Client(
-  'http://localhost:7070',  // Base URL
-  'v1',                     // API Version
-  {
-    username: 'username',   // Set during infrastructure setup
-    password: 'password'     // Set during infrastructure setup
-  }
-);
-```
+Statuses you will see: `400` invalid body/params, `401` bad or expired credential / missing account ID, `403` missing scope, `404` not found, `409` (`ai/schedule` could not match an executor or produced no jobs), `422` malformed JSON or a prompt rejected by the intent guardrail, `429` list `limit` above 100 or an exhausted monthly AI quota, `402` platform AI credits exhausted.
 
 ## Usage
 
-### Managing Accounts
+### Projects
+
+`name` must be unique per account. Only `description` can be updated; the name is immutable. Deleting a project deletes its jobs.
 
 ```typescript
-// Create a new account
-const account = await client.createAccount({
-  name: 'My Account'
+const created = await client.createProject({
+  name: 'billing',
+  description: 'Billing jobs',
+  createdBy: 'victor',
 });
+const projectId = created.data.id;
 
-// Get account details
-const accountDetails = await client.getAccount('account-id');
-
-// Add feature to account
-await client.addFeatureToAccount('account-id', {
-  featureId: 1
-});
-
-// Remove feature from account
-await client.removeFeatureFromAccount('account-id', {
-  featureId: 1
-});
-
-// Rename an account
-await client.updateAccount('account-id', { name: 'New Name' });
-
-// Get / increase the account's monthly execution count
-const count = await client.getAccountExecutionCount('account-id');
-const increased = await client.increaseAccountExecutionCount('account-id', 10000);
-
-// Get the account's log-derived AI usage for the current period
-// (prompt + classify limits/used/remaining, and estimated cost in USD)
-const usage = await client.getAIUsage('account-id');
-
-// Get / add platform tokens
-const tokens = await client.getAccountTokens('account-id');
-const added = await client.addAccountTokens('account-id', 1000);
-```
-
-> **Note:** Account, token, and execution-count endpoints are account/cluster-level operations. They require a credential carrying the **`admin`** scope, or Basic Authentication (operator bootstrap).
-
-### AI Provider Settings (Bring Your Own Key)
-
-Configure an ordered list of active models (primary + fallbacks) per account. When `createJobFromPrompt` is called, the primary model is tried first; if it fails the next fallback is tried. Supported providers: `openai`, `anthropic`, `bedrock`, `openrouter`. Credential fields are encrypted at rest and never returned in plaintext.
-
-Use `getAIModels()` to fetch the per-provider approved model catalog from the server before configuring settings.
-
-```typescript
-// Fetch the approved model catalog
-const catalog = await client.getAIModels();
-// catalog.data = { openai: [{id, display_name, default}, ...], anthropic: [...], ... }
-
-// Read current settings (keys are redacted)
-const settings = await client.getAccountAISettings();
-
-// Save settings with primary + fallback
-await client.upsertAccountAISettings({
-  active_models: [
-    { provider: 'openai', model: 'gpt-4.1-mini' },     // primary
-    { provider: 'anthropic', model: 'claude-sonnet-4-5' } // fallback
-  ],
-  openai_api_key: 'sk-...',
-  anthropic_api_key: 'sk-ant-...'
-});
-```
-
-### AI Prompt Request Log
-
-Retrieve the account's AI prompt-request history with optional filters and pagination.
-
-```typescript
-const log = await client.listPromptRequests({
-  provider: 'openai',
-  status: 'success',
-  search: 'reminder',
-  limit: 25,
+const page = await client.listProjects({
+  limit: 10,
   offset: 0,
+  orderBy: 'date_created', // id | name | description | date_created | account_id
+  orderByDirection: 'desc',
 });
-// log.data = { requests: PromptRequest[], total, limit, offset }
-for (const req of log.data.requests) {
-  console.log(req.model, req.total_tokens, req.estimated_cost_usd, req.status);
-}
+console.log(page.data.total, page.data.projects.length);
+
+await client.getProject(String(projectId));
+await client.updateProject(String(projectId), { description: 'Invoices and dunning', modifiedBy: 'victor' });
+await client.deleteProject(String(projectId), { deletedBy: 'victor' });
 ```
 
-### Managing Features
+### Jobs
+
+`POST /jobs` always takes an array and is asynchronous: it returns `202` with `data` set to a request ID. `createJob` wraps a single job in an array; `batchCreateJobs` sends several. Poll `getAsyncTask(requestId)` to learn the outcome (it blocks server-side until the task finishes). `spec` is a six-field cron expression with a leading seconds field (`sec min hour dom month dow`; `@every 1h`-style descriptors also work). Always write all six fields: a five-field expression is accepted but read as `sec min hour dom month`, so `0 9 * * 1` means minute 9 of every hour in January, not Monday 09:00. An empty `spec` creates a one-time job that fires at `startDate`.
 
 ```typescript
-// List all available features
-const features = await client.listFeatures();
+const accepted = await client.createJob({
+  projectId: 7,
+  timezone: 'UTC',
+  spec: '0 0 9 * * 1', // every Monday 09:00 (sec min hour dom month dow)
+  executorId: 3,
+  data: JSON.stringify({ report: 'weekly' }),
+  startDate: '2026-01-01T00:00:00Z',
+  retryMax: 3,
+  status: 'active',
+  createdBy: 'victor',
+});
+const requestId = accepted.data; // string
 
-// Add or remove every feature for an account (self-hosting)
-await client.addAllFeaturesToAccount('account-id');
-await client.removeAllFeaturesFromAccount('account-id');
-```
+const task = await client.getAsyncTask(requestId);
+// task.data.state: 0 not started | 1 in progress | 2 success | 3 failed
+// task.data.output is a JSON string: the created jobs on success, the error on failure
 
-### Managing Credentials
+const batch = await client.batchCreateJobs([
+  { projectId: 7, timezone: 'UTC', spec: '0 */5 * * * *', createdBy: 'victor' },
+  { projectId: 7, timezone: 'UTC', startDate: '2026-02-01T09:00:00Z', createdBy: 'victor' }, // one-time
+]);
 
-```typescript
-// List credentials with pagination and ordering
-const credentials = await client.listCredentials({
+const jobs = await client.listJobs({
+  projectId: 7, // omit to list across all projects
   limit: 10,
   offset: 0,
   orderBy: 'date_created',
-  orderByDirection: 'desc'
+  orderByDirection: 'desc',
 });
+console.log(jobs.data.jobs.map((j) => j.id));
 
-// Create a new credential. `scopes` is required (a non-empty subset of
-// read/write/execute/admin). Optionally pass `expiresInSeconds` for a shorter TTL
-// (the server clamps it). Granting 'admin' requires an operator or an existing
-// admin credential.
-const credential = await client.createCredential({
-  createdBy: 'user-id',
-  scopes: ['read', 'write', 'execute'],
-  expiresInSeconds: 8 * 60 * 60, // optional (8 hours)
-});
-
-// Get a specific credential
-const credentialDetails = await client.getCredential('credential-id');
-
-// Update a credential
-const updatedCredential = await client.updateCredential('credential-id', {
-  modifiedBy: 'user-id'
-});
-
-// Delete a credential
-await client.deleteCredential('credential-id', {
-  deletedBy: 'user-id'
-});
-
-// Archive a credential
-await client.archiveCredential('credential-id', {
-  archivedBy: 'user-id'
-});
-
-// Re-encrypt stored secrets (credential secrets + executor cloud keys + AI provider
-// keys) with a new server secret key (self-hosting). Update the server's SecretKey and
-// reload it first, then call this with the previous key.
-const rotated = await client.rotateSecret('<old-hex-secret-key>');
-// rotated.data.credentialsRotated, rotated.data.executorsRotated, rotated.data.aiSettingsRotated
+await client.getJob('42');
+await client.updateJob('42', { spec: '0 0 10 * * 1', status: 'inactive', modifiedBy: 'victor' }); // modifiedBy required
+await client.deleteJob('42', { deletedBy: 'victor' });
 ```
 
-### Managing Executions
+`orderBy` for jobs accepts `id | project_id | spec | date_created | timezone | account_id | date_modified | modified_by | deleted_by | executor_id | start_date | end_date | retry_max`. `limit` defaults to 10 and values above 100 are rejected with `429`.
+
+### Executors
+
+`type` is `webhook_url`, `cloud_function`, or `local`. Webhook executors require `webhookUrl` and `webhookMethod`; local executors require `command`. The create response is the only place `cloudApiKey`, `cloudApiSecret`, and `webhookSecret` are returned; reads never include them.
 
 ```typescript
-// List executions with date filtering
-const executions = await client.listExecutions({
-  startDate: '2024-01-01T00:00:00Z',  // Required: Start date (RFC3339 format)
-  endDate: '2024-12-31T23:59:59Z',    // Required: End date (RFC3339 format)
-  projectId: 0,                        // Optional: Project ID (0 for all)
-  jobId: 0,                            // Optional: Job ID (0 for all)
-  limit: 10,                            // Required: Maximum number of items
-  offset: 0                             // Required: Number of items to skip
-});
-
-// Execution counts grouped into per-minute buckets for a time window
-const analytics = await client.getDateRangeAnalytics({
-  startDate: '2024-01-01', // YYYY-MM-DD
-  startTime: '00:00:00'    // HH:MM:SS or HH:MM
-});
-
-// Lifetime totals (scheduled / success / failed) for the account
-const totals = await client.getExecutionTotals(123);
-
-// Delete execution logs older than a retention window (self-hosting; peer auth)
-const cleanup = await client.cleanupOldExecutionLogs('123', 6); // retentionMonths
-```
-
-### Backup and Restore
-
-Database backup/restore for self-hosted clusters (requires an `admin`-scoped credential, or Basic Authentication).
-
-```typescript
-// Start an online backup
-const backup = await client.backupDatabase();
-
-// Restore from a backup file (S3 object key when S3 is configured, else local path)
-const restore = await client.restoreDatabase('backup-2024-01-01.db');
-```
-
-### Managing Executors
-
-```typescript
-// List executors with pagination and ordering
-const executors = await client.listExecutors({
-  limit: 10,
-  offset: 0,
-  orderBy: 'date_created',
-  orderByDirection: 'desc'
-});
-
-// Create a webhook executor
-const executor = await client.createExecutor({
-  name: 'webhook-executor',
+const webhook = await client.createExecutor({
+  name: 'notify',
+  description: 'Posts to the internal notifications service', // used by scheduleFromPrompt to match executors
+  tags: ['email', 'slack'],
   type: 'webhook_url',
-  webhookUrl: 'https://example.com/webhook',
+  webhookUrl: 'https://example.com/hooks/scheduler0',
   webhookMethod: 'POST',
-  webhookSecret: 'secret-key',
-  createdBy: 'user-id'
+  webhookSecret: 'shared-secret',
+  payloadAggregation: false,
+  createdBy: 'victor',
 });
 
-// Create a cloud function executor
-const cloudExecutor = await client.createExecutor({
-  name: 'cloud-function-executor',
+const fn = await client.createExecutor({
+  name: 'lambda',
   type: 'cloud_function',
-  region: 'us-west-1',
   cloudProvider: 'aws',
-  cloudResourceUrl: 'https://example.com/function',
-  cloudApiKey: 'api-key',
-  cloudApiSecret: 'api-secret',
-  createdBy: 'user-id'
+  region: 'us-east-1',
+  cloudResourceUrl: 'https://lambda.us-east-1.amazonaws.com/2015-03-31/functions/my-fn/invocations',
+  cloudApiKey: 'AKIA...',
+  cloudApiSecret: '...',
+  createdBy: 'victor',
 });
 
-// Get a specific executor
-const executorDetails = await client.getExecutor('executor-id');
+const list = await client.listExecutors({ limit: 10, offset: 0, orderBy: 'date_created', orderByDirection: 'desc' });
+console.log(list.data.executors ?? []); // the server omits `executors`, `total`, etc. when empty/zero
 
-// Update an executor
-const updatedExecutor = await client.updateExecutor('executor-id', {
-  name: 'updated-executor',
-  modifiedBy: 'user-id'
-});
-
-// Delete an executor
-await client.deleteExecutor('executor-id', {
-  deletedBy: 'user-id'
-});
-
-// Test-invoke an executor with a synthetic job — fires immediately (no waiting
-// for the cron spec/start date) and has no side effects (nothing is persisted
-// or rescheduled). The body is optional; omit it to use a default synthetic job.
-const testResult = await client.testInvokeExecutor('executor-id', {
-  job: { spec: '0 2 * * *', data: JSON.stringify({ action: 'process_data' }), timezone: 'UTC', retryMax: 2 },
-  age: '24h',                        // how old the synthetic entry should appear
-  executionTime: '2024-01-15T02:00:00Z', // optional; defaults to now
-});
-// HTTP 200 even when the target fails; check testResult.data.success.
-console.log('invocation succeeded:', testResult.data.success);
+await client.getExecutor(String(webhook.data.id));
+await client.updateExecutor(String(webhook.data.id), { description: 'Updated', modifiedBy: 'victor' });
+await client.deleteExecutor(String(fn.data.id), { deletedBy: 'victor' });
 ```
 
-### Managing Local Executors
-
-Local executors run jobs as shell commands on a machine you control. Register one, then the `scheduler0-cli` process pulls assigned jobs and reports results back.
+`testInvokeExecutor` fires a synthetic job through an executor synchronously with no side effects (nothing is created, logged, or rescheduled). The body is optional. The call returns `200` even when the target fails; check `data.success`. Local executors cannot be test-invoked (`400`).
 
 ```typescript
-// Register a local executor (the server sets the type to "local")
+const test = await client.testInvokeExecutor('executor-id', {
+  job: { spec: '0 0 2 * * *', data: JSON.stringify({ action: 'process' }), timezone: 'UTC' },
+  age: '24h', // Go duration; how old the synthetic job should look
+  executionTime: '2026-01-15T02:00:00Z', // defaults to now
+});
+console.log(test.data.success, test.data.durationMs, test.data.error);
+```
+
+### Local executors
+
+Local executors run a command on a machine you control. Register one, then pull the jobs assigned to it and report results. This is the protocol the `scheduler0` CLI implements; use these methods only if you are building your own runner.
+
+```typescript
 const reg = await client.registerLocalExecutor({
-  name: 'My Local Executor',
-  command: '/usr/local/bin/process-job.sh',
-  workingDir: '/home/deploy/app',
-  createdBy: 'user-1'
+  name: 'build-box',
+  command: '/usr/local/bin/run-job.sh',
+  workingDir: '/srv/app',
+  createdBy: 'victor',
 });
 const executorId = reg.data.id;
 
-// Pull the active jobs assigned to a local executor (also renews its lease)
-const { data: jobs } = await client.pullLocalExecutorJobs(executorId);
+// Active jobs assigned to this executor. Each call also renews the executor's lease.
+const assigned = await client.pullLocalExecutorJobs(executorId);
+console.log(assigned.data.length);
 
-// Report a batch of execution results (state: 0=scheduled, 1=success, 2=failed)
-const result = await client.reportLocalExecutions(executorId, [
+const report = await client.reportLocalExecutions(executorId, [
   {
-    jobId: 1,
-    uniqueId: 'exec-1',
-    state: 1,
-    lastExecutionTime: '2025-01-01T00:00:00Z',
-    nextExecutionTime: '2025-01-02T00:00:00Z'
-  }
-]);
-console.log(`${result.data.committed} executions committed`);
-```
-
-### Managing Projects
-
-```typescript
-// List projects with pagination and ordering
-const projects = await client.listProjects({
-  limit: 10,
-  offset: 0,
-  orderBy: 'date_created',
-  orderByDirection: 'desc'
-});
-
-// Create a new project
-const project = await client.createProject({
-  name: 'My Project',
-  description: 'Project description',
-  createdBy: 'user-id'
-});
-
-// Get a specific project
-const projectDetails = await client.getProject('project-id');
-
-// Update a project
-const updatedProject = await client.updateProject('project-id', {
-  description: 'Updated description',
-  modifiedBy: 'user-id'
-});
-
-// Delete a project
-await client.deleteProject('project-id', {
-  deletedBy: 'user-id'
-});
-```
-
-### Managing Jobs
-
-```typescript
-// List jobs with pagination and ordering
-const jobs = await client.listJobs({
-  projectId: '',              // Optional: Project ID to filter by (empty string for all)
-  limit: 10,
-  offset: 0,
-  orderBy: 'date_created',
-  orderByDirection: 'desc'
-});
-
-// Create a single job
-const job = await client.createJob({
-  projectId: 123,              // Required
-  timezone: 'UTC',              // Required
-  executorId: 456,              // Optional
-  data: 'job payload data',     // Optional
-  spec: '0 30 * * * *',          // Optional
-  startDate: '2024-01-01T00:00:00Z', // Optional
-  endDate: '2024-12-31T23:59:59Z',   // Optional
-  timezoneOffset: 0,           // Optional
-  retryMax: 3,                  // Optional
-  status: 'active',             // Optional
-  createdBy: 'user-id'          // Required
-});
-
-// Create multiple jobs in a single batch request
-const batchResult = await client.batchCreateJobs([
-  {
-    projectId: 123,
-    timezone: 'UTC',
-    data: 'job 1 payload',
-    spec: '0 30 * * * *',
-    startDate: '2024-01-01T00:00:00Z',
-    retryMax: 3,
-    createdBy: 'user-id'
+    jobId: 42,
+    uniqueId: 'run-2026-01-01T09:00:00Z-42',
+    state: 1, // 0 scheduled | 1 success | 2 failed
+    lastExecutionTime: '2026-01-01T09:00:00Z',
+    nextExecutionTime: '2026-01-08T09:00:00Z',
   },
-  {
-    projectId: 123,
-    timezone: 'UTC',
-    data: 'job 2 payload',
-    spec: '0 0 * * * *',
-    startDate: '2024-01-01T00:00:00Z',
-    retryMax: 5,
-    createdBy: 'user-id'
-  }
 ]);
-
-// Get a specific job
-const jobDetails = await client.getJob('job-id');
-
-// Update a job
-const updatedJob = await client.updateJob('job-id', {
-  data: 'updated payload',
-  spec: '0 0 * * * *',
-  status: 'inactive',
-  modifiedBy: 'user-id'
-});
-
-// Delete a job
-await client.deleteJob('job-id', {
-  deletedBy: 'user-id'
-});
+console.log(report.data.committed);
 ```
 
-### AI-Powered Job Creation
+### Credentials
 
-Create job configurations from natural language prompts using AI:
+`scopes` is required (non-empty, no duplicates). The secret is returned once, as `plaintextSecret` in the create response; store it immediately. `expiresAt` defaults to 90 days and `expiresInSeconds` can only shorten it. To rotate a credential, create a new one and archive the old one.
 
 ```typescript
-// Create job configurations from a natural language prompt
-const promptRequest = {
-  prompt: 'Send weekly reports every Monday at 9 AM',
-  purposes: ['reporting', 'communication'],
-  events: ['weekly_cycle'],
-  recipients: ['team@example.com', 'manager@example.com'],
-  channels: ['email'],
-  timezone: 'America/New_York' // Optional IANA timezone; defaults to "UTC" when omitted.
-};
+const cred = await client.createCredential({
+  createdBy: 'victor',
+  scopes: ['read', 'write', 'execute'],
+  expiresInSeconds: 30 * 24 * 60 * 60, // optional
+});
+console.log(cred.data.apiKey, cred.data.plaintextSecret, cred.data.expiresAt);
 
-// Generate job configurations from the prompt.
-// Returns a PromptResult: { providers: PromptProviderResult[], classification?: IntentClassification }
-const promptResult = await client.createJobFromPrompt(promptRequest);
+const creds = await client.listCredentials({
+  limit: 10,
+  offset: 0,
+  orderBy: 'expires_at', // id | date_created | date_modified | created_by | modified_by | deleted_by | expires_at
+  orderByDirection: 'asc',
+});
 
-// Inspect the intent classification
-if (promptResult.classification) {
-  console.log('Decision:', promptResult.classification.decision); // 'allow' | 'clarify' | 'reject'
-  console.log('Reason:', promptResult.classification.reason);
+await client.getCredential(String(cred.data.id));
+await client.archiveCredential(String(cred.data.id), { archivedBy: 'victor' });
+await client.deleteCredential(String(cred.data.id), { deletedBy: 'victor' });
+```
+
+`updateCredential(id, { archived, modifiedBy })` calls `PUT /credentials/{id}`. Only `archived` and `modifiedBy` can change; `apiKey`, `apiSecret`, `scopes` and `expiresAt` are fixed at creation and the server rejects attempts to change the key or secret with `400`. An omitted `archived` is treated as `false` (un-archive). Servers older than the credential-update fix answer every call with HTTP 200 `{ success: false, data: "api_key or api_secret cannot be empty" }`, so check `success` if you target one.
+
+### Executions
+
+```typescript
+const execs = await client.listExecutions({
+  limit: 50, // default 50, no maximum
+  offset: 0,
+  startDate: '2026-01-01T00:00:00Z', // optional, RFC3339
+  endDate: '2026-01-31T23:59:59Z', // optional
+  projectId: 7, // optional
+  jobId: 42, // optional
+  state: 'failed', // optional: scheduled | success | failed
+  orderBy: 'dateCreated', // dateCreated | lastExecutionDateTime | nextExecutionDateTime
+  orderDirection: 'DESC', // note: orderDirection, not orderByDirection
+});
+for (const e of execs.data.executions) {
+  console.log(e.jobId, e.state /* 0 scheduled | 1 success | 2 failed */, e.lastExecutionDatetime);
 }
 
-// Process each provider's job configurations
-for (const provider of promptResult.providers) {
-  console.log(`Provider: ${provider.provider} / ${provider.model}`);
-  console.log(`Tokens used: ${provider.totalTokens}`);
-  for (const config of provider.jobs) {
-    console.log(`Kind: ${config.kind}`);
-    console.log(`Cron Expression: ${config.cronExpression}`);
-    if (config.nextRunAt) {
-      console.log(`Next Run At: ${config.nextRunAt}`);
-    }
-    
-    // Use the generated configuration to create actual jobs
-    const job = await client.createJob({
-      projectId: 123,
-      timezone: config.timezone || 'UTC',
-      spec: config.cronExpression || '',
-      createdBy: 'ai-prompt',
-      ...(config.startDate && { startDate: config.startDate }),
-      ...(config.endDate && { endDate: config.endDate }),
-      ...(config.subject && {
-        data: JSON.stringify({
-          subject: config.subject,
-          recipients: config.recipients
-        })
-      })
-    });
-    
-    console.log(`Job created with request ID: ${job.data}`);
+// Per-minute counts for a window starting at the given date/time (UTC).
+const analytics = await client.getDateRangeAnalytics({ startDate: '2026-01-01', startTime: '09:00' });
+console.log(analytics.data.points);
+
+// Lifetime totals. The argument is the account ID (also sent as X-Account-ID).
+const totals = await client.getExecutionTotals(123);
+console.log(totals.data.scheduled, totals.data.success, totals.data.failed);
+
+// Delete execution logs older than N months. `accountId` must equal the X-Account-ID. Needs `execute`.
+await client.cleanupOldExecutionLogs('123', 6);
+```
+
+### Async tasks
+
+```typescript
+const task = await client.getAsyncTask('request-id-from-createJob');
+if (task.data.state === 2) {
+  console.log('created:', task.data.output);
+} else if (task.data.state === 3) {
+  console.error('failed:', task.data.output);
+}
+```
+
+### Features
+
+```typescript
+const features = await client.listFeatures(); // needs `read`
+console.log(features.data.map((f) => f.name));
+```
+
+### AI
+
+The AI endpoints need the `execute` scope (reads such as `listPromptRequests`, `getAIModels`, `getAccountAISettings` need `read`; `upsertAccountAISettings` needs `write`). `createJobFromPrompt` and `scheduleFromPrompt` count against the account's monthly prompt quota (`429` when exhausted, `402` when platform credits are exhausted). `classifyPrompt` and `analyzeSuggestions` count against the classify quota. `sendTimeSuggestions` is deterministic and consumes nothing.
+
+#### Generate job definitions from a prompt
+
+```typescript
+const result = await client.createJobFromPrompt({
+  prompt: 'Send the weekly sales report every Monday at 9am',
+  channels: ['email'], // purposes/events/recipients/channels: optional hints, max 5 items each
+  timezone: 'America/New_York', // optional IANA zone; defaults to UTC
+  locale: 'en', // optional
+});
+
+for (const provider of result.providers) {
+  for (const job of provider.jobs) {
+    console.log(job.kind, job.cronExpression, job.nextRunAt, job.timezone);
   }
 }
 ```
 
-### Classifying a Prompt (without AI execution)
+A prompt the intent guardrail rejects throws `API error: 422 - …`; the response body includes the classification.
 
-Run only the intent classifier against a prompt — no model is invoked and no credits are consumed:
+#### Schedule jobs directly from a prompt
+
+Runs the same pipeline, then resolves or creates a project, picks an executor (pinned `executorId`, the account's only executor, or the best `description`/`tags` match chosen by the model) and creates the jobs synchronously.
+
+```typescript
+const scheduled = await client.scheduleFromPrompt({
+  prompt: 'Remind the sales team every Monday at 9am to review the pipeline',
+  createdBy: 'victor',
+  project: { name: 'Sales reminders' }, // or projectId: 7
+  // executorId: 3, // pin an executor and skip matching
+});
+console.log(
+  scheduled.project.id,
+  scheduled.projectCreated,
+  scheduled.executor.id,
+  scheduled.executorMatchedBy, // 'pinned' | 'only' | 'llm'
+  scheduled.jobs.length
+);
+```
+
+Throws `409` when there are no executors, no executor could be matched, or the prompt produced no schedulable jobs; `422` when the guardrail rejects the prompt (nothing is created).
+
+#### Classify a prompt
+
+Runs only the intent classifier. English only (`locale` must be `en*`, otherwise `400`); returns `503` when the classifier is not configured.
 
 ```typescript
 const classification = await client.classifyPrompt({ prompt: 'What is Kubernetes?' });
-
-console.log('Decision:', classification.decision); // 'reject'
-console.log('Reason:', classification.reason);     // 'informational_question_not_schedule_request'
+console.log(classification.decision, classification.reason); // 'allow' | 'clarify' | 'reject'
 ```
 
-### Analyzing a Conversation for Suggestions
+#### Analyze a conversation
 
-Analyze an ordered set of conversation messages to detect commitments, requests, deadlines, and follow-ups. The analysis is deterministic and **English only** (a non-`en*` locale returns `UNSUPPORTED_LOCALE`):
+Request and response bodies use snake_case. English only.
 
 ```typescript
-const result = await client.analyzeSuggestions({
+const analysis = await client.analyzeSuggestions({
   conversation_id: 'conv_123',
   messages: [
     { speaker: 'Victor', timestamp: '2026-07-17T10:00:00-04:00', message: "I'll send the proposal tomorrow." },
   ],
   options: { locale: 'en', default_timezone: 'America/Toronto' },
 });
-
-for (const suggestion of result.suggestions) {
-  console.log(suggestion.type, suggestion.reason);
-}
+console.log(analysis.suggestions.length, analysis.obligations.length);
 ```
 
-### Recommending Send Times
-
-Recommend suitable future send times for a message given sender/recipient time zones, working hours, quiet hours, weekends, priority, and coverage rules. The engine is deterministic and does not send the message or create a job:
+#### Recommend send times
 
 ```typescript
-const result = await client.sendTimeSuggestions({
-  sender: { id: 'user_123', timezone: 'America/Toronto' },
-  recipients: [
-    { id: 'user_456', timezone: 'America/Los_Angeles', role: 'primary' },
-  ],
+const times = await client.sendTimeSuggestions({
+  sender: { id: 'u1', timezone: 'America/Toronto' },
+  recipients: [{ id: 'u2', timezone: 'America/Los_Angeles', role: 'primary' }],
   message: { priority: 'normal' },
+  options: { suggestion_count: 3 },
 });
-
-for (const suggestion of result.suggestions) {
-  console.log(suggestion.send_at, suggestion.score, suggestion.label);
+for (const s of times.suggestions) {
+  console.log(s.send_at, s.score);
 }
 ```
 
-### Scheduling from a Prompt
-
-Turn a natural-language prompt into actually-scheduled jobs in one call. The server runs the prompt pipeline (intent guardrail + generation), resolves or creates a project, picks the executor whose `description`/`tags` best match the prompt (or uses a pinned `executorId` / the account's only executor), and creates the jobs synchronously:
+#### Prompt-request log, model catalog, and provider settings (bring your own key)
 
 ```typescript
-const result = await client.scheduleFromPrompt({
-  prompt: 'Remind the sales team every Monday at 9am to review the pipeline',
-  channels: ['email'],
-  createdBy: 'victor',
-  // Optional: pin a project or executor, otherwise they are resolved/created for you.
-  // project: { name: 'Sales reminders' },
-  // executorId: 3,
+const log = await client.listPromptRequests({ provider: 'openai', status: 'success', limit: 25, offset: 0, order: 'DESC' });
+for (const r of log.data.requests) {
+  console.log(r.model, r.total_tokens, r.estimated_cost_usd, r.status);
+}
+
+const catalog = await client.getAIModels();
+// catalog.data = { openai: [{ id, display_name, default? }], anthropic: [...], ... }
+
+const settings = await client.getAccountAISettings();
+// settings.data.active_models, provider keys are masked
+
+await client.upsertAccountAISettings({
+  active_models: [
+    { provider: 'openai', model: 'gpt-4.1-mini' }, // primary
+    { provider: 'anthropic', model: 'claude-sonnet-4-5' }, // fallback
+  ],
+  openai_api_key: 'sk-...',
+  anthropic_api_key: 'sk-ant-...',
 });
-
-console.log(
-  `project ${result.project.id} (created=${result.projectCreated}), ` +
-  `executor ${result.executor.id} matched by ${result.executorMatchedBy}, ` +
-  `${result.jobs.length} jobs created`
-);
 ```
 
-Executor selection uses each executor's `description` and `tags` (set them on `createExecutor` / `updateExecutor`). When the account has more than one executor and no `executorId` is pinned, the model picks the best match; if it cannot confidently match, the call throws with a `409` error (pin an `executorId` or refine descriptions/tags). A prompt rejected by the intent guardrail throws a `422` error.
+Models must come from `getAIModels()`, and every provider in `active_models` needs a key already stored or supplied in the same request.
 
-**Note**: The AI prompt endpoint requires:
-- Valid API credentials (API Key + Secret)
-- Account ID header
-- Sufficient credits (1 credit per prompt execution)
+### Accounts (self-hosting)
 
-The `timezone` field is optional. When omitted, the AI assumes `UTC`. When set to an IANA name (e.g. `'America/New_York'`), the AI interprets relative phrases like *"9am tomorrow"* in that timezone and emits `nextRunAt` / `startDate` / `endDate` with the matching numeric offset. Invalid timezone strings are rejected by the API with `400 Bad Request`. In a browser, you can pass `Intl.DateTimeFormat().resolvedOptions().timeZone` to schedule in the user's local time.
-
-### Managing Async Tasks
+These need the `admin` scope or basic auth. With an API credential, `{id}` must equal the `X-Account-ID`.
 
 ```typescript
-// Get async task status
-const task = await client.getAsyncTask('request-id');
+const account = await operator.createAccount({ name: 'acme' });
+const id = String(account.data.id);
+
+await operator.getAccount(id);
+await operator.updateAccount(id, { name: 'acme-inc' });
+
+await operator.getAccountExecutionCount(id); // { executionCount, tokens, nextResetDate, ... }
+await operator.increaseAccountExecutionCount(id, 1000); // { newExecutionCount }
+await operator.getAIUsage(id); // { prompt: { limit, used, remaining }, classify: {...}, estimatedCostUsd, ... }
+await operator.getAccountTokens(id); // { tokens }
+await operator.addAccountTokens(id, 500); // { newBalance }
+
+await operator.addFeatureToAccount(id, { featureId: 1 });
+await operator.removeFeatureFromAccount(id, { featureId: 1 });
+await operator.addAllFeaturesToAccount(id);
+await operator.removeAllFeaturesFromAccount(id);
+
+// After changing the server's SecretKey and restarting, re-encrypt stored secrets from the old key.
+const rotated = await operator.rotateSecret('<previous-hex-secret-key>');
+console.log(rotated.data.credentialsRotated, rotated.data.executorsRotated, rotated.data.aiSettingsRotated);
 ```
 
-### Health Monitoring
+### Cluster, backup and restore (self-hosting)
+
+Raft membership and diagnostics. `admin` scope or basic auth.
 
 ```typescript
-// Check cluster health (no authentication required)
+await operator.listClusterNodes();
+await operator.addClusterNode(2, '127.0.0.1:7072', 'http://127.0.0.1:9092');
+await operator.promoteClusterNode(2);
+await operator.demoteClusterNode(2);
+await operator.removeClusterNode(2);
+await operator.transferClusterLeadership();
+await operator.addSelfToCluster();
+await operator.removeSelfFromCluster();
+await operator.forceRebuildCluster(1); // seed node only
+await operator.resetRaft(); // the node exits after responding
+
+await operator.dumpScheduleQueue();
+await operator.dumpJobExecutionsCache();
+await operator.dumpJobQueues();
+await operator.dumpJobQueueVersions();
+
+const backup = await operator.backupDatabase(); // 202 { status, requestId }
+const restore = await operator.restoreDatabase('backup-2026-01-01.db'); // 202 { status, requestId }
+console.log(backup.data.requestId, restore.data.status);
+```
+
+### Health
+
+No authentication required.
+
+```typescript
 const health = await client.healthcheck();
-console.log(`Leader: ${health.data.leaderAddress}`);
-console.log(`Raft State: ${health.data.raftStats.state}`);
+console.log(health.data.leaderAddress, health.data.raftStats.state);
 ```
 
-## Data Types
+## Enumerations
 
-### Job Status
-- `"active"` - Job is active and will be executed
-- `"inactive"` - Job is inactive and will not be executed
-
-### Executor Types
-- `"webhook_url"` - HTTP webhook executor
-- `"cloud_function"` - Cloud function executor
-- `"local"` - Local (pull-based) executor; runs jobs on a machine you control (set by the server when registering via `registerLocalExecutor`)
-
-### Webhook Methods
-- `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`
-
-### Job Creation Behavior
-- **Single Job Creation**: `createJob()` internally uses batch creation with a single job
-- **Batch Job Creation**: `batchCreateJobs()` allows creating multiple jobs in one API call
-- **Backend API**: The `/api/v1/jobs` POST endpoint expects an array of jobs for batch processing
-- **Response Format**: Job creation returns `BatchJobResponse` with HTTP 202 Accepted status and a `Data` field containing the request ID (string) for async task tracking
-- **Async Tracking**: Use the request ID with `getAsyncTask()` to track job creation status
-
-## Error Handling
-
-The client throws errors for API errors. Check the error message for details:
-
-```typescript
-try {
-  const result = await client.createJob(job);
-} catch (error) {
-  if (error instanceof Error) {
-    if (error.message.includes('API error: 400')) {
-      // Handle bad request
-    } else if (error.message.includes('API error: 401')) {
-      // Handle unauthorized
-    } else if (error.message.includes('API error: 403')) {
-      // Handle forbidden
-    } else if (error.message.includes('API error: 404')) {
-      // Handle not found
-    }
-    console.error(error.message);
-  }
-}
-```
-
-## Account ID Requirements
-
-Most endpoints require the `X-Account-ID` header. The following endpoints require account ID:
-- `/api/v1/jobs/*`
-- `/api/v1/projects/*`
-- `/api/v1/credentials/*`
-- `/api/v1/executors/*`
-- `/api/v1/async-tasks/*`
-- `/api/v1/executions`
-- `/api/v1/local-executors/*`
-- `/api/v1/ai/prompt` (AI prompt endpoint)
-- `/api/v1/ai/prompt/classify` (prompt intent classifier)
-- `/api/v1/ai/schedule` (prompt-to-scheduled-jobs endpoint)
-- `/api/v1/ai/suggestions/analyze` (conversation suggestions)
-- `/api/v1/ai/suggestions/time` (send-time suggestions)
-- `/api/v1/ai/settings` (per-account AI provider settings)
-- `/api/v1/ai/prompt-requests` (AI prompt-request log)
-
-Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
-
-### Per-Request Account ID Override
-
-You can override the Account ID set during client initialization on a per-request basis:
-
-```typescript
-// Override Account ID for a specific request
-const projects = await client.listProjects({
-  accountId: 456,  // Overrides the client's default Account ID
-  limit: 10,
-  offset: 0
-});
-
-// Or pass as a parameter for other methods
-const credential = await client.createCredential(
-  { createdBy: 'user-id' },
-  '456'  // Account ID override
-);
-```
-
-## Credits and AI Features
-
-The AI prompt endpoint (`/api/v1/ai/prompt`) requires:
-- **Credits**: 1 credit per prompt execution
-- **Authentication**: Valid API Key + Secret credentials
-- **Account ID**: Required header for credit deduction
-
-Credits are automatically deducted when the prompt is successfully processed. If the prompt processing fails after credit deduction, credits are not refunded.
-
-## TypeScript Support
-
-This library is written in TypeScript and includes full type definitions. All types are exported from the main module:
-
-```typescript
-import { Client, Job, Project, Executor } from '@scheduler0/scheduler0-node-client';
-```
-
-## Requirements
-
-- Node.js >= 18.0.0
-- TypeScript >= 5.0 (for TypeScript projects)
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+| Field | Values |
+|-------|--------|
+| Credential `scopes[]` | `read`, `write`, `execute`, `admin` |
+| Executor `type` | `webhook_url`, `cloud_function`, `local` |
+| Executor `webhookMethod` | `GET`, `POST`, `PUT`, `DELETE` |
+| Job `status` | `active`, `inactive` |
+| Execution `state` | `0` scheduled, `1` success, `2` failed (the `state` query filter uses the words) |
+| Async task `state` | `0` not started, `1` in progress, `2` success, `3` failed |
+| `ScheduleResult.executorMatchedBy` | `pinned`, `only`, `llm` |
+| `IntentClassification.decision` | `allow`, `clarify`, `reject` |
+| `PromptJobResponse.kind` | `FOLLOW_UP`, `REMINDER`, `DIGEST` |
 
 ## Development
 
-### Running Tests
-
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
+npm test          # jest
+npm run build     # tsc -> dist/
 ```
 
-### Building
+## License
 
-```bash
-# Build TypeScript to JavaScript
-npm run build
-```
-
+MIT. See [LICENSE](LICENSE).
