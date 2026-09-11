@@ -345,6 +345,16 @@ export class Client {
     return this.request<CredentialResponse>('GET', `/credentials/${id}`, undefined, undefined, accountIdOverride);
   }
 
+  /**
+   * PUT /credentials/{id}. Updates `archived` and `modifiedBy` only; `apiKey`
+   * and `apiSecret` are server-generated and immutable (the server rejects any
+   * attempt to change them with 400). An omitted `archived` is treated as
+   * `false`. To rotate a credential, create a new one and archive the old one.
+   *
+   * Servers older than the credential-update fix answer every call with HTTP
+   * 200 `{ success: false, data: "api_key or api_secret cannot be empty" }`;
+   * check `success` if you target one.
+   */
   async updateCredential(id: string, body: CredentialUpdateRequestBody, accountIdOverride?: string): Promise<CredentialResponse> {
     return this.request<CredentialResponse>('PUT', `/credentials/${id}`, body, undefined, accountIdOverride);
   }
