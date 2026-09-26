@@ -162,6 +162,11 @@ export interface CredentialArchiveRequestBody {
   archivedBy: string;
 }
 
+/**
+ * Body for PUT /credentials/{id}. Only `archived` and `modifiedBy` are mutable;
+ * `apiKey`, `apiSecret`, `scopes` and `expiresAt` are fixed at creation.
+ * An omitted `archived` is treated as `false`.
+ */
 export interface CredentialUpdateRequestBody {
   archived?: boolean;
   modifiedBy: string;
@@ -190,7 +195,7 @@ export interface ListCredentialsParams {
   accountId?: number;
   limit: number;
   offset: number;
-  orderBy?: 'date_created' | 'date_modified' | 'created_by' | 'modified_by' | 'deleted_by';
+  orderBy?: 'id' | 'date_created' | 'date_modified' | 'created_by' | 'modified_by' | 'deleted_by' | 'expires_at';
   orderByDirection?: 'asc' | 'desc';
 }
 
@@ -219,7 +224,7 @@ export interface Execution {
   id: number;
   accountId: number;
   uniqueId: string;
-  state: number; // 0: scheduled, 1: success, 2: failed
+  state: 0 | 1 | 2; // 0: scheduled, 1: success, 2: failed
   nodeId: number;
   jobId: number;
   lastExecutionDatetime: string;
@@ -305,10 +310,10 @@ export interface ExecutorResponse {
 }
 
 export interface ExecutorCreateRequestBody {
-  name?: string;
+  name: string;
   description?: string;
   tags?: string[];
-  type?: 'cloud_function' | 'webhook_url' | 'local';
+  type: 'cloud_function' | 'webhook_url' | 'local';
   region?: string;
   cloudProvider?: string;
   cloudResourceUrl?: string;
@@ -355,7 +360,7 @@ export interface PaginatedExecutorsResponse {
     total?: number;
     offset?: number;
     limit?: number;
-    executors: Executor[];
+    executors?: Executor[];
   };
 }
 
@@ -363,7 +368,7 @@ export interface ListExecutorsParams {
   accountId?: number;
   limit: number;
   offset: number;
-  orderBy?: 'date_created' | 'date_modified' | 'created_by' | 'modified_by' | 'deleted_by';
+  orderBy?: 'id' | 'date_created' | 'date_modified' | 'created_by' | 'modified_by' | 'deleted_by';
   orderByDirection?: 'asc' | 'desc';
 }
 
@@ -484,10 +489,23 @@ export interface PaginatedJobsResponse {
 
 export interface ListJobsParams {
   accountId?: number;
-  projectId?: string; // Empty string for all projects
+  projectId?: number | string; // Omit (or pass '') to list jobs across all projects
   limit: number;
   offset: number;
-  orderBy?: 'date_created' | 'date_modified' | 'created_by' | 'modified_by' | 'deleted_by';
+  orderBy?:
+    | 'id'
+    | 'project_id'
+    | 'spec'
+    | 'date_created'
+    | 'timezone'
+    | 'account_id'
+    | 'date_modified'
+    | 'modified_by'
+    | 'deleted_by'
+    | 'executor_id'
+    | 'start_date'
+    | 'end_date'
+    | 'retry_max';
   orderByDirection?: 'asc' | 'desc';
 }
 
@@ -510,13 +528,14 @@ export interface ProjectResponse {
 }
 
 export interface ProjectCreateRequestBody {
-  name?: string;
-  description?: string;
+  name: string; // Unique per account
+  description: string;
   createdBy: string;
 }
 
+// Only the description can be updated; a project's name is immutable.
 export interface ProjectUpdateRequestBody {
-  description?: string;
+  description: string;
   modifiedBy: string;
 }
 
@@ -538,7 +557,7 @@ export interface ListProjectsParams {
   accountId?: number;
   limit: number;
   offset: number;
-  orderBy?: 'date_created' | 'date_modified' | 'created_by' | 'modified_by' | 'deleted_by';
+  orderBy?: 'id' | 'name' | 'description' | 'date_created' | 'account_id';
   orderByDirection?: 'asc' | 'desc';
 }
 
@@ -605,10 +624,9 @@ export interface ModelInfo {
   default?: boolean;
 }
 
+// snake_case, matching the server contract. On read, stored provider keys are masked.
 export interface AccountAISettings {
   account_id?: number;
-  provider?: string;
-  model?: string;
   active_models?: ActiveModel[];
   openai_api_key?: string;
   anthropic_api_key?: string;
@@ -656,8 +674,8 @@ export interface ListPromptRequestsParams {
   search?: string;
   start?: string; // RFC3339
   end?: string; // RFC3339
-  order?: string; // ASC or DESC
-  limit?: number;
+  order?: 'ASC' | 'DESC'; // anything other than ASC sorts DESC
+  limit?: number; // default 25, clamped to 100
   offset?: number;
 }
 
@@ -758,8 +776,7 @@ export interface ScheduleResult {
   project: Project;
   projectCreated: boolean;
   executor: Executor;
-  /** One of "pinned" | "only" | "llm". */
-  executorMatchedBy: string;
+  executorMatchedBy: 'pinned' | 'only' | 'llm';
   /** The model's rationale when matched by "llm". */
   executorMatchReason?: string;
   jobs: Job[];
@@ -1018,7 +1035,7 @@ export interface LocalExecutorJobsResponse {
 export interface LocalExecutionReport {
   jobId: number;
   uniqueId: string;
-  state: number; // 0 = scheduled, 1 = success, 2 = failed
+  state: 0 | 1 | 2; // 0 = scheduled, 1 = success, 2 = failed
   lastExecutionTime?: string; // RFC3339
   nextExecutionTime?: string; // RFC3339
   executionVersion?: number;
