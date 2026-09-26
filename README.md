@@ -500,8 +500,20 @@ console.log(health.data.leaderAddress, health.data.raftStats.state);
 ## Development
 
 ```bash
-npm test          # jest
-npm run build     # tsc -> dist/
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
+# Live staging contract (healthcheck + unauthenticated 401). No credentials.
+npm run test:e2e
+
+# Compile TypeScript -> dist/
+npm run build
 ```
 
 ## License
