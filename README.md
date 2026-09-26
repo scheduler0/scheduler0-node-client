@@ -807,6 +807,9 @@ npm run test:watch
 
 # Run tests with coverage
 npm run test:coverage
+
+# Live staging contract (healthcheck + unauthenticated 401). No credentials.
+npm run test:e2e
 ```
 
 ### Building
